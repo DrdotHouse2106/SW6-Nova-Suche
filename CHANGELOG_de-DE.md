@@ -1,3 +1,6 @@
+# 1.10.8
+- Fehler behoben: Das Suchfenster brach mit Fehler 500 ab, wenn es 0 Treffer gab, aber passende Kategorien (z. B. „bremse“ bei einem Fahrzeug ohne Bremsenteile) – der Text „… Ergebnisse gefunden“ hatte keine Form für 0
+
 # 1.10.7
 - Neues Plugin-Icon im Nova-Stil (Erweiterungen → Meine Erweiterungen)
 - Repository umbenannt in SW6-Nova-Suche – alte Adresse leitet weiter

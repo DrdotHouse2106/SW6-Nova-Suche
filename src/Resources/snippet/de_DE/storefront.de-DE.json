@@ -1,7 +1,7 @@
 {
     "novaSearch": {
         "manufacturers": "Marken",
-        "count": "{1} <strong>1</strong> Ergebnis gefunden|]1,Inf[ <strong>%count%</strong> Ergebnisse gefunden",
+        "count": "{0} Keine Ergebnisse gefunden|{1} <strong>1</strong> Ergebnis gefunden|]1,Inf[ <strong>%count%</strong> Ergebnisse gefunden",
         "noResults": "Keine Treffer für „%term%“",
         "noResultsHint": "Prüfe die Schreibweise oder versuche einen allgemeineren Begriff.",
         "noProducts": "Keine Artikel gefunden – vielleicht hilft eine der Kategorien.",

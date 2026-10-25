@@ -1,3 +1,6 @@
+# 1.10.8
+- Fix: search window returned error 500 with 0 results but matching categories (plural snippet had no form for 0)
+
 # 1.10.7
 - New plugin icon in Nova style
 - Repository renamed to SW6-Nova-Suche

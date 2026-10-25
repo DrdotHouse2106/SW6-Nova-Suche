@@ -406,6 +406,13 @@ Geplante Funktionen (Synonyme, Weiterleitungen, Auswertungen in der Administrati
 
 ## Häufige Probleme und Lösungen
 
+### Suchfenster zeigt Fehler 500 bei bestimmten Begriffen (bis 1.10.7)
+
+**Ursache:** 0 Treffer, aber passende Kategorien (z. B. bei gewähltem Fahrzeug) – der Text „… Ergebnisse gefunden“ hatte keine Pluralform für 0. Im Log: „Unable to choose a translation … for value "0"“
+
+**Lösung:** Ab 1.10.8 behoben. Eigene Übersetzungen dieses Textes brauchen eine Form `{0} …`
+
+
 Hier sammeln wir Hürden, die bei Installation und Betrieb tatsächlich aufgetreten sind. **Neue Probleme bitte ergänzen** (oder als Issue melden), damit andere nicht lange suchen müssen.
 
 ### Nummer wird nicht gefunden
