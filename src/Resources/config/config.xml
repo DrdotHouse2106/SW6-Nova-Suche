@@ -243,6 +243,22 @@
             <defaultValue>true</defaultValue>
         </input-field>
 
+        <input-field type="bool">
+            <name>learnCorrections</name>
+            <label>Learn spelling corrections from visitors</label>
+            <label lang="de-DE">Tippfehler aus dem Verhalten lernen</label>
+            <helpText lang="de-DE">Sucht ein Besucher z. B. „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche das. Ab der eingestellten Anzahl wird „vergser“ künftig automatisch als „vergaser“ gesucht (Hinweis „Ergebnisse für …“). Nur bei kleinen Abweichungen in der Schreibweise.</helpText>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>correctionMinCount</name>
+            <label>Learn a correction after this many observations</label>
+            <label lang="de-DE">Tippfehler übernehmen nach so vielen Beobachtungen</label>
+            <helpText lang="de-DE">Wie oft Besucher dieselbe Korrektur gemacht haben müssen. Standard 2.</helpText>
+            <defaultValue>2</defaultValue>
+        </input-field>
+
         <input-field type="int">
             <name>boostMinScore</name>
             <label>Minimum learning score for ranking boost</label>

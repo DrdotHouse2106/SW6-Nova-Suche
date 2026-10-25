@@ -1,3 +1,7 @@
+# 1.11.0
+- Neu: **Tippfehler lernen** – sucht ein Besucher „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche die Korrektur. Ab 2 Beobachtungen (einstellbar) wird „vergser“ automatisch als „vergaser“ gesucht. Nur bei kleinen Abweichungen in der Schreibweise mit denselben Zahlen
+- Auswertung: Zwischenstände beim Tippen („ra“, „rah“, „rahmen“) zählen nicht mehr als eigene Suchen – nur der fertige Begriff
+
 # 1.10.8
 - Fehler behoben: Das Suchfenster brach mit Fehler 500 ab, wenn es 0 Treffer gab, aber passende Kategorien (z. B. „bremse“ bei einem Fahrzeug ohne Bremsenteile) – der Text „… Ergebnisse gefunden“ hatte keine Form für 0
 

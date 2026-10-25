@@ -33,6 +33,11 @@ export default class NovaSearchTracker {
         this._push({ type: 'search', term, hits, rewritten });
     }
 
+    /** Begriff ohne Klick, direkt danach ein anderer Begriff mit Klick – Grundlage für gelernte Korrekturen */
+    refine(term, target) {
+        this._push({ type: 'refine', term, target });
+    }
+
     click(term, productId) {
         this._push({ type: 'click', term, productId });
         this.remember(productId, term);

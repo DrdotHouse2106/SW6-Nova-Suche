@@ -45,12 +45,15 @@ Die Suche **lernt dabei mit**: Was Kunden suchen, anklicken, in den Warenkorb le
 
 | Signal | Wie erfasst | Wirkung |
 |---|---|---|
-| Suche | Suchfenster (nach einer Tipp-Pause) und Suchergebnisseite | Beliebte Suchanfragen, Begriffe ohne Treffer |
+| Suche | Suchfenster und Suchergebnisseite – Zwischenstände beim Tippen („ra“, „rah“, „rahmen“) zählen nicht, nur der fertige Begriff | Beliebte Suchanfragen, Begriffe ohne Treffer |
+| Korrektur | Suche ohne Klick, gleich danach ähnliche Schreibweise mit Klick („vergser“ → „vergaser“) | Ab 2 Beobachtungen wird „vergser“ automatisch als „vergaser“ gesucht |
 | Klick auf ein Ergebnis | Suchfenster und Suchergebnisseite | +1 Punkt für das Produkt bei diesem Begriff |
 | In den Warenkorb nach einer Suche | überall im Shop | +3 Punkte |
 | Kauf nach einer Suche | beim Bestellabschluss | +5 Punkte |
 
 **Bessere Platzierung:** Erreicht ein Produkt bei einem Suchbegriff den eingestellten Mindest-Lernwert (Standard 3 Punkte), rückt es bei genau diesem Begriff in der Sortierung „Relevanz“ nach oben – im Suchfenster und auf der Suchergebnisseite. Die Trefferliste selbst bleibt unverändert (es tauchen keine unpassenden Produkte auf), Einzelklicks verzerren nichts. Die Stärke wächst logarithmisch und ist auf das Doppelte der besten Shopware-Bewertung begrenzt.
+
+**Tippfehler lernen (1.11.0):** Die Suche erkennt Korrekturen selbst – ohne dass jede falsche Schreibweise von Hand hinterlegt werden muss. Als Korrektur gilt nur eine kleine Abweichung in der Schreibweise mit denselben Zahlen („spiegel t2“ → „spiegel t3“ ist ein anderes Teil, „bremse“ → „auspuff“ ein neuer Gedanke). Gelernte Korrekturen erscheinen in der Auswertung als Umschreibung und werden bei der 30-Tage-Prüfung nicht entfernt. Einstellungen: *Tippfehler aus dem Verhalten lernen*, *Tippfehler übernehmen nach so vielen Beobachtungen*. Ergänzt Claude, das nur Begriffe **ohne** Treffer auswertet – ein Tippfehler wie „vergser“ findet oft irgendetwas Unpassendes.
 
 **Beliebte Suchanfragen:** die häufigsten Begriffe mit Treffern aus den letzten 90 Tagen, ab einer Mindestanzahl Suchen (Standard 5). Eine **Sperrliste** verhindert, dass unerwünschte Begriffe öffentlich angezeigt werden. Von Hand gepflegte Begriffe stehen immer vorne.
 

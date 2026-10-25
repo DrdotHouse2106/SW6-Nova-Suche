@@ -22,6 +22,7 @@
             <argument type="service" id="Nova\Search\Service\SearchStatistics"/>
             <argument type="service" id="Nova\Search\Service\RewriteStore"/>
             <argument type="service" id="logger"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
         </service>
 
         <service id="Nova\Search\Service\NumberIndex">

@@ -57,6 +57,9 @@ class TrackingController extends StorefrontController
         // Suchen: je Begriff und Sitzung einmal in 30 Minuten, keine Bots (Klicks und Warenkorb zählen immer)
         $events = array_values(array_filter($events, static fn (array $event): bool => ($event['type'] ?? '') !== EventRecorder::TYPE_SEARCH
             || SearchCountGuard::shouldCount($request, \is_string($event['term'] ?? null) ? $event['term'] : '')));
+        // Korrekturen nur von echten Besuchern
+        $events = array_values(array_filter($events, static fn (array $event): bool => ($event['type'] ?? '') !== EventRecorder::TYPE_REFINE
+            || !SearchCountGuard::isBot($request)));
         if ($events === []) {
             return new Response(null, Response::HTTP_NO_CONTENT);
         }

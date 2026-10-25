@@ -22,6 +22,9 @@ class RewriteStore
 
     public const MAX_ATTEMPTS = 3;
 
+    /** Umschreibung aus dem Verhalten der Besucher gelernt (statt von Claude) */
+    public const SOURCE_LEARNED = 'learned';
+
     /** @var array<string, string|null> Zwischenspeicher pro Request */
     private array $memo = [];
 
@@ -101,10 +104,12 @@ class RewriteStore
         $rows = $this->connection->fetchAllAssociative(
             'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, `status` FROM `nova_search_rewrite`
              WHERE `status` IN (:done, :none) AND COALESCE(`updated_at`, `created_at`) < :before
+               AND (`source` IS NULL OR `source` <> :learned)
              ORDER BY COALESCE(`updated_at`, `created_at`) ASC LIMIT ' . max(1, $limit),
             [
                 'done' => self::STATUS_DONE,
                 'none' => self::STATUS_NONE,
+                'learned' => self::SOURCE_LEARNED,
                 'before' => (new \DateTimeImmutable('-30 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT),
             ]
         );
@@ -143,6 +148,59 @@ class RewriteStore
                 'term' => TermNormalizer::normalize($term),
             ]
         );
+    }
+
+    /**
+     * Zählt eine beobachtete Korrektur („vergser“ ohne Klick → „vergaser“ mit Klick).
+     *
+     * @return int bisherige Anzahl dieses Paares
+     */
+    public function recordRefinement(string $salesChannelId, string $term, string $target): int
+    {
+        $params = [
+            'sc' => Uuid::fromHexToBytes($salesChannelId),
+            'term' => TermNormalizer::normalize($term),
+            'target' => TermNormalizer::normalize($target),
+            'now' => $this->now(),
+        ];
+
+        $this->connection->executeStatement(
+            'INSERT INTO `nova_search_refinement` (`sales_channel_id`, `term`, `target`, `count`, `created_at`)
+             VALUES (:sc, :term, :target, 1, :now)
+             ON DUPLICATE KEY UPDATE `count` = `count` + 1, `updated_at` = :now',
+            $params
+        );
+
+        return (int) $this->connection->fetchOne(
+            'SELECT `count` FROM `nova_search_refinement` WHERE `sales_channel_id` = :sc AND `term` = :term AND `target` = :target',
+            $params
+        );
+    }
+
+    /**
+     * Gelernte Korrektur als Umschreibung speichern. Eine von Claude gefundene Umschreibung bleibt bestehen.
+     */
+    public function saveLearned(string $salesChannelId, string $term, string $target): void
+    {
+        $term = TermNormalizer::normalize($term);
+        $target = mb_substr(TermNormalizer::normalize($target), 0, TermNormalizer::MAX_LENGTH);
+        $sc = Uuid::fromHexToBytes($salesChannelId);
+
+        $row = $this->connection->fetchAssociative(
+            'SELECT `status`, `source` FROM `nova_search_rewrite` WHERE `sales_channel_id` = :sc AND `term` = :term',
+            ['sc' => $sc, 'term' => $term]
+        );
+        if ($row !== false && $row['status'] === self::STATUS_DONE && $row['source'] !== self::SOURCE_LEARNED) {
+            return;
+        }
+
+        $this->connection->executeStatement(
+            'INSERT INTO `nova_search_rewrite` (`sales_channel_id`, `term`, `rewrite`, `status`, `source`, `created_at`)
+             VALUES (:sc, :term, :rewrite, :status, :source, :now)
+             ON DUPLICATE KEY UPDATE `rewrite` = :rewrite, `status` = :status, `source` = :source, `updated_at` = :now',
+            ['sc' => $sc, 'term' => $term, 'rewrite' => $target, 'status' => self::STATUS_DONE, 'source' => self::SOURCE_LEARNED, 'now' => $this->now()]
+        );
+        unset($this->memo[$salesChannelId . '|' . $term]);
     }
 
     /** Begriff findet inzwischen selbst Treffer → Umschreibung entfernen */

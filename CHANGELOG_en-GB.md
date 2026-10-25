@@ -1,3 +1,7 @@
+# 1.11.0
+- New: learns spelling corrections from visitor behaviour (misspelling without click → similar term with click)
+- Analytics: typing steps are no longer counted as separate searches
+
 # 1.10.8
 - Fix: search window returned error 500 with 0 results but matching categories (plural snippet had no form for 0)
 

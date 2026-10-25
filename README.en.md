@@ -17,6 +17,7 @@ Fast **search window** for Shopware 6.7: clicking the search field opens a large
 ## Learning & Claude
 
 - **Learns from behaviour:** searches, clicks, add-to-cart and purchases after a search are counted anonymously (no IPs, no customer or session IDs). Products that perform well for a term move up for exactly that term (relevance sorting only). Popular searches are determined automatically (min. count + blocklist).
+- **Learns spelling corrections (1.11.0):** a search without a click followed by a similarly spelled search with a click (e.g. "vergser" → "vergaser") is counted; after 2 observations (configurable) the misspelling is searched as the correction automatically. Only small spelling differences with identical numbers count. Typing steps ("ra", "rah", "rahmen") are no longer counted as separate searches.
 - **Recently viewed** list in the start view (browser localStorage, consent "comfort features" by default).
 - **Claude (`claude-haiku-5-5`, off by default):** search terms without results are sent once, in batches, to Claude via the official Anthropic PHP SDK. Every suggested alternative is verified against the real product search; only working rewrites are stored permanently and applied automatically ("Results for …"). Only search terms plus shop/category/brand names are sent – no customer data. Estimated cost: ~2–3 cents per 1,000 new zero-result terms.
 - Requires Shopware's scheduled tasks and message queue (or `bin/console nova-search:rewrite` via cron).

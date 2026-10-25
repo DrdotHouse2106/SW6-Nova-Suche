@@ -51,6 +51,12 @@ export default class NovaSearchPlugin extends PluginBaseClass {
             attributionAllowed: () => hasCookie('nova-search-learning'),
         });
 
+        // Zurückgehaltene Suche beim Verlassen der Seite noch melden
+        window.addEventListener('pagehide', () => {
+            this._releaseHeldSearch();
+            this._tracker.flush();
+        });
+
         this._rememberProductView();
         this._registerPageTracking();
 
@@ -212,6 +218,8 @@ export default class NovaSearchPlugin extends PluginBaseClass {
             this._backdrop.classList.add('is-open');
             document.documentElement.classList.add('nova-search-locked');
             this._signaledTerms = new Set();
+            this._heldSearch = null;
+            this._refineFrom = null;
             document.dispatchEvent(new CustomEvent('nova:search-open'));
         }
 
@@ -228,6 +236,7 @@ export default class NovaSearchPlugin extends PluginBaseClass {
 
         this._abort();
         this._emitSearchSignal();
+        this._releaseHeldSearch();
         this._layer.classList.remove('is-open');
         this._backdrop.classList.remove('is-open');
         document.documentElement.classList.remove('nova-search-locked');
@@ -257,8 +266,13 @@ export default class NovaSearchPlugin extends PluginBaseClass {
             event.preventDefault();
             const term = this._input.value.trim();
             if (term.length >= this.options.minChars) {
-                // Die Suchergebnisseite zählt die Suche selbst – hier nicht doppelt melden
+                // Die Suchergebnisseite zählt die Suche selbst – hier nicht doppelt melden.
+                // Eine vorher gesuchte, andere Suche wird noch gemeldet; ein Zwischenstand dieses Begriffs nicht.
                 this._cancelSearchSignal();
+                if (this._heldSearch && NovaSearchPlugin.isTypingStep(this._heldSearch.term, term)) {
+                    this._heldSearch = null;
+                }
+                this._releaseHeldSearch();
                 this._rememberSearch(term);
                 window.location.href = this._searchPageUrl(term);
             }
@@ -577,11 +591,59 @@ export default class NovaSearchPlugin extends PluginBaseClass {
         }
         this._signaledTerms?.add(signal.term);
 
-        if (signal.total > 0) {
-            this._rememberSearch(signal.term);
+        // Zwischenstände beim Tippen („ra“, „rah“, „rahmen“) zählen nicht: Die Suche wird zurückgehalten
+        // und durch den weitergetippten Begriff ersetzt. Gemeldet wird erst, wenn etwas anderes gesucht,
+        // ein Ergebnis angeklickt oder das Fenster geschlossen wird.
+        const held = this._heldSearch;
+        if (held && NovaSearchPlugin.isTypingStep(held.term, signal.term)) {
+            this._heldSearch = { ...signal, clicked: held.clicked };
+            return;
         }
-        document.dispatchEvent(new CustomEvent('nova:search', { detail: { term: signal.term, total: signal.total } }));
-        this._tracker.search(signal.term, signal.total, signal.rewritten);
+
+        this._releaseHeldSearch();
+        // Andere Suche nach einer ohne Klick – vielleicht eine Korrektur („vergser“ → „vergaser“)
+        this._refineFrom = held && !held.clicked ? held.term : null;
+        this._heldSearch = { ...signal, clicked: false };
+    }
+
+    /** Zurückgehaltene Suche melden */
+    _releaseHeldSearch() {
+        const held = this._heldSearch;
+        this._heldSearch = null;
+        if (!held) {
+            return;
+        }
+
+        if (held.total > 0) {
+            this._rememberSearch(held.term);
+        }
+        document.dispatchEvent(new CustomEvent('nova:search', { detail: { term: held.term, total: held.total } }));
+        this._tracker.search(held.term, held.total, held.rewritten);
+    }
+
+    /** Vor einem Klick: Suche melden und ggf. die Korrektur des vorherigen Begriffs */
+    _beforeResultClick() {
+        this._emitSearchSignal();
+        const held = this._heldSearch;
+        if (!held) {
+            return;
+        }
+
+        held.clicked = true;
+        const from = this._refineFrom;
+        this._refineFrom = null;
+        this._releaseHeldSearch();
+        if (from && from !== held.term) {
+            this._tracker.refine(from, held.term);
+        }
+    }
+
+    /** true, wenn b durch Weiter- oder Zurücktippen aus a entsteht (gleicher Anfang) */
+    static isTypingStep(a, b) {
+        const x = (a || '').trim().toLowerCase();
+        const y = (b || '').trim().toLowerCase();
+
+        return x !== '' && y !== '' && (x.startsWith(y) || y.startsWith(x));
     }
 
     /** Klick auf eine Produktkarte im Suchfenster */
@@ -593,7 +655,7 @@ export default class NovaSearchPlugin extends PluginBaseClass {
             return;
         }
 
-        this._emitSearchSignal();
+        this._beforeResultClick();
         this._tracker.click(term, info.id);
     }
 
@@ -624,7 +686,7 @@ export default class NovaSearchPlugin extends PluginBaseClass {
             const fromLayer = this._body && this._body.contains(form) && this._state.term.length >= this.options.minChars;
             form.querySelectorAll('input[name^="lineItems["][name$="][id]"]').forEach((input) => {
                 if (fromLayer) {
-                    this._emitSearchSignal();
+                    this._beforeResultClick();
                     this._tracker.click(this._state.term, input.value);
                 }
                 const term = this._tracker.termFor(input.value);

@@ -3,6 +3,7 @@
 namespace Nova\Search\Service;
 
 use Psr\Log\LoggerInterface;
+use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
@@ -20,6 +21,11 @@ class EventRecorder
     public const MAX_EVENTS_PER_REQUEST = 20;
     public const TYPE_SEARCH = 'search';
     public const TYPE_PURCHASE = 'purchase';
+    /** Begriff ohne Klick, direkt danach ein ähnlicher Begriff mit Klick (vermutlich eine Korrektur) */
+    public const TYPE_REFINE = 'refine';
+
+    /** Ab so vielen Beobachtungen wird eine Korrektur übernommen (Standard) */
+    private const DEFAULT_CORRECTION_MIN_COUNT = 2;
 
     /** Wie lange nach einer Bestellung ein Kauf noch gemeldet werden darf */
     private const PURCHASE_WINDOW_HOURS = 48;
@@ -28,7 +34,72 @@ class EventRecorder
         private readonly SearchStatistics $statistics,
         private readonly RewriteStore $rewrites,
         private readonly LoggerInterface $logger,
+        private readonly ?SystemConfigService $config = null,
     ) {
+    }
+
+    /**
+     * Sieht „target“ wie die korrigierte Schreibweise von „term“ aus? Nur kleine Abweichungen
+     * (Tippfehler, vergessener Buchstabe) – „bremse“ → „auspuff“ ist ein neuer Gedanke, keine Korrektur.
+     */
+    public static function isLikelyCorrection(string $term, string $target): bool
+    {
+        $a = TermNormalizer::normalize($term);
+        $b = TermNormalizer::normalize($target);
+        if ($a === $b || !TermNormalizer::isTrackable($a) || !TermNormalizer::isTrackable($b)) {
+            return false;
+        }
+
+        // Weiter- oder Zurücktippen ist keine Korrektur
+        if (str_starts_with($a, $b) || str_starts_with($b, $a)) {
+            return false;
+        }
+
+        // Andere Zahlen = anderes Teil oder Fahrzeug („spiegel t2“ → „spiegel t3“), kein Tippfehler
+        preg_match_all('/\d+/', $a, $digitsA);
+        preg_match_all('/\d+/', $b, $digitsB);
+        if ($digitsA[0] !== $digitsB[0]) {
+            return false;
+        }
+
+        $distance = self::distance($a, $b);
+        $allowed = min(3, max(1, intdiv(max(mb_strlen($a), mb_strlen($b)), 4)));
+
+        return $distance <= $allowed;
+    }
+
+    /** Levenshtein-Abstand auf Zeichen (nicht Bytes) – Umlaute zählen als ein Zeichen */
+    private static function distance(string $a, string $b): int
+    {
+        $x = mb_str_split($a);
+        $y = mb_str_split($b);
+        $previous = range(0, \count($y));
+
+        foreach ($x as $i => $charX) {
+            $current = [$i + 1];
+            foreach ($y as $j => $charY) {
+                $current[] = min($previous[$j + 1] + 1, $current[$j] + 1, $previous[$j] + ($charX === $charY ? 0 : 1));
+            }
+            $previous = $current;
+        }
+
+        return $previous[\count($y)];
+    }
+
+    private function learnCorrection(string $salesChannelId, string $term, string $target): bool
+    {
+        if (!self::isLikelyCorrection($term, $target)
+            || $this->config?->get('NovaSearch.config.learnCorrections', $salesChannelId) === false) {
+            return false;
+        }
+
+        $count = $this->rewrites->recordRefinement($salesChannelId, $term, $target);
+        $min = $this->config?->getInt('NovaSearch.config.correctionMinCount', $salesChannelId) ?: self::DEFAULT_CORRECTION_MIN_COUNT;
+        if ($count >= max(1, $min)) {
+            $this->rewrites->saveLearned($salesChannelId, $term, $target);
+        }
+
+        return true;
     }
 
     /**
@@ -80,6 +151,14 @@ class EventRecorder
                 $term = \is_string($event['term'] ?? null) ? $event['term'] : '';
                 $type = \is_string($event['type'] ?? null) ? $event['type'] : '';
                 if ($term === '') {
+                    continue;
+                }
+
+                if ($type === self::TYPE_REFINE) {
+                    $target = \is_string($event['target'] ?? null) ? $event['target'] : '';
+                    if ($target !== '' && $this->learnCorrection($salesChannelId, $term, $target)) {
+                        ++$saved;
+                    }
                     continue;
                 }
 
