@@ -44,5 +44,6 @@ class NovaSearch extends Plugin
         $connection->executeStatement('DROP TABLE IF EXISTS `nova_search_import`');
         $connection->executeStatement('DROP TABLE IF EXISTS `nova_search_hint`');
         $connection->executeStatement('DROP TABLE IF EXISTS `nova_search_refinement`');
+        $connection->executeStatement('DROP TABLE IF EXISTS `nova_search_feedback`');
     }
 }

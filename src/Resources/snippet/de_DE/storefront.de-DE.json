@@ -78,6 +78,15 @@
         "requestMailIntro": "Ein Kunde hat über die Suche ein Teil angefragt, das nicht gefunden wurde.",
         "requestMailTerm": "Suchbegriff",
         "requestMailShop": "Shop",
-        "rewriteHintPartner": "Hier im Shop gibt es nichts zu „%original%“ – ähnliche Treffer für „%rewrite%“:"
+        "rewriteHintPartner": "Hier im Shop gibt es nichts zu „%original%“ – ähnliche Treffer für „%rewrite%“:",
+        "feedback": {
+            "question": "Gefällt Ihnen das Suchergebnis?",
+            "up": "Ja, das Suchergebnis gefällt mir",
+            "down": "Nein, das Suchergebnis gefällt mir nicht",
+            "textLabel": "Was haben Sie gesucht?",
+            "textPlaceholder": "Optional, max. 200 Zeichen",
+            "send": "Senden",
+            "thanks": "Danke!"
+        }
     }
 }

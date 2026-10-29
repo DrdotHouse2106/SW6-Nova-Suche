@@ -78,7 +78,7 @@
                 <mt-card position-identifier="nova-search-tables">
                     <div class="nova-search-analytics__tabs">
                         <button
-                            v-for="name in ['terms', 'zeroResults', 'products']"
+                            v-for="name in ['terms', 'zeroResults', 'products', 'feedback']"
                             :key="name"
                             type="button"
                             class="nova-search-analytics__tab"
@@ -88,7 +88,7 @@
                             {{ $tc(`nova-search.analytics.tabs.${name}`) }}
                         </button>
                         <span class="nova-search-analytics__tabs-spacer"></span>
-                        <mt-button size="small" variant="secondary" @click="download(tab === 'products' ? 'products' : (tab === 'zeroResults' ? 'rewrites' : 'terms'))">
+                        <mt-button size="small" variant="secondary" @click="download(exportType)">
                             {{ $tc('nova-search.analytics.exportCsv') }}
                         </mt-button>
                     </div>
@@ -188,6 +188,82 @@
                         </table>
                     </template>
 
+                    {# Rückmeldungen zum Suchergebnis – Texte sind Kundeneingaben und werden nur escaped ausgegeben ({{ }}) #}
+                    <template v-else-if="tab === 'feedback'">
+                        <p class="nova-search-analytics__hint">{{ $tc('nova-search.analytics.feedback.hint') }}</p>
+                        <p class="nova-search-analytics__feedback-sum">
+                            <span>👍 {{ feedback.up }}</span>
+                            <span>👎 {{ feedback.down }}</span>
+                            <span>{{ $t('nova-search.analytics.feedback.textCount', { count: feedback.texts }) }}</span>
+                        </p>
+                        <table class="nova-search-analytics__table">
+                            <thead>
+                                <tr>
+                                    <th>{{ $tc('nova-search.analytics.col.term') }}</th>
+                                    <th class="is--num" :title="$tc('nova-search.analytics.feedback.up')">👍</th>
+                                    <th class="is--num" :title="$tc('nova-search.analytics.feedback.down')">👎</th>
+                                    <th class="is--num">{{ $tc('nova-search.analytics.feedback.hits') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.col.fix') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="row in feedback.terms" :key="row.term" :class="{ 'is--warning': row.down > row.up }">
+                                    <td>{{ row.term }}</td>
+                                    <td class="is--num">{{ row.up }}</td>
+                                    <td class="is--num">{{ row.down }}</td>
+                                    <td class="is--num">{{ row.hits === null ? '–' : row.hits }}</td>
+                                    <td class="nova-search-analytics__fix">
+                                        <mt-button size="small" variant="secondary" @click="fix('synonyms', row.term)">
+                                            {{ $tc('nova-search.analytics.fixSynonym') }}
+                                        </mt-button>
+                                        <mt-button size="small" variant="secondary" @click="fix('redirects', row.term)">
+                                            {{ $tc('nova-search.analytics.fixRedirect') }}
+                                        </mt-button>
+                                    </td>
+                                </tr>
+                                <tr v-if="feedback.terms.length === 0">
+                                    <td colspan="5" class="nova-search-analytics__empty">{{ $tc('nova-search.analytics.feedback.empty') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h3 class="nova-search-analytics__subtitle">{{ $tc('nova-search.analytics.feedback.textsTitle') }}</h3>
+                        <table class="nova-search-analytics__table">
+                            <thead>
+                                <tr>
+                                    <th>{{ $tc('nova-search.analytics.feedback.date') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.col.term') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.salesChannel') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.feedback.text') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.feedback.source') }}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="entry in feedback.entries" :key="entry.id">
+                                    <td class="nova-search-analytics__nowrap">{{ formatDate(entry.createdAt) }}</td>
+                                    <td>{{ entry.term }}</td>
+                                    <td>{{ entry.salesChannel }}</td>
+                                    <td class="nova-search-analytics__feedback-text">{{ entry.text }}</td>
+                                    <td>{{ $tc(`nova-search.analytics.feedback.sources.${entry.source}`) }}</td>
+                                    <td class="nova-search-analytics__fix">
+                                        <mt-button
+                                            v-if="canEdit"
+                                            size="small"
+                                            variant="secondary"
+                                            @click="feedbackToDelete = entry"
+                                        >
+                                            {{ $tc('nova-search.analytics.feedback.delete') }}
+                                        </mt-button>
+                                    </td>
+                                </tr>
+                                <tr v-if="feedback.entries.length === 0">
+                                    <td colspan="6" class="nova-search-analytics__empty">{{ $tc('nova-search.analytics.feedback.emptyTexts') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </template>
+
                     <table v-else class="nova-search-analytics__table">
                         <thead>
                             <tr>
@@ -229,6 +305,25 @@
                 </mt-card>
             </template>
         </div>
+
+        {# Rückmeldung löschen #}
+        <sw-modal
+            v-if="feedbackToDelete"
+            :title="$tc('nova-search.analytics.feedback.delete')"
+            variant="small"
+            @modal-close="feedbackToDelete = null"
+        >
+            <p>{{ $t('nova-search.analytics.feedback.confirmDelete', { term: feedbackToDelete.term }) }}</p>
+            <p class="nova-search-analytics__feedback-text">{{ feedbackToDelete.text }}</p>
+            <template #modal-footer>
+                <mt-button variant="secondary" @click="feedbackToDelete = null">
+                    {{ $tc('global.default.cancel') }}
+                </mt-button>
+                <mt-button variant="critical" :is-loading="isDeleting" @click="deleteFeedback">
+                    {{ $tc('nova-search.analytics.feedback.delete') }}
+                </mt-button>
+            </template>
+        </sw-modal>
 
         {# Daten aus einem bisherigen Suchdienst übernehmen #}
         <sw-modal

@@ -15,3 +15,11 @@
         {{ parent() }}
     {% endif %}
 {% endblock %}
+
+{# Rückmeldung zum Suchergebnis unter der Trefferliste (auch bei 0 Treffern) – außerhalb der Liste, die beim Filtern neu geladen wird #}
+{% block page_search %}
+    {{ parent() }}
+    {% if page.searchTerm %}
+        {% sw_include '@NovaSearch/storefront/nova-search/feedback.html.twig' with { novaFeedbackTerm: page.searchTerm, novaFeedbackSource: 'page' } %}
+    {% endif %}
+{% endblock %}

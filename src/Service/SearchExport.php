@@ -10,8 +10,8 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * Liest die gesammelten Suchdaten für den CSV-Export aus.
  *
- * Enthält keine personenbezogenen Daten – das Plugin speichert nur Suchbegriffe,
- * Produkt-IDs und Zähler.
+ * Das Plugin speichert nur Suchbegriffe, Produkt-IDs und Zähler. Ausnahme: Der Freitext der
+ * Rückmeldungen ist eine freie Eingabe und kann personenbezogene Daten enthalten.
  */
 class SearchExport
 {
@@ -19,7 +19,8 @@ class SearchExport
     public const TYPE_PRODUCTS = 'products';
     public const TYPE_REWRITES = 'rewrites';
     public const TYPE_CLAUDE_USAGE = 'claude-usage';
-    public const TYPES = [self::TYPE_TERMS, self::TYPE_PRODUCTS, self::TYPE_REWRITES, self::TYPE_CLAUDE_USAGE];
+    public const TYPE_FEEDBACK = 'feedback';
+    public const TYPES = [self::TYPE_TERMS, self::TYPE_PRODUCTS, self::TYPE_REWRITES, self::TYPE_CLAUDE_USAGE, self::TYPE_FEEDBACK];
 
     public function __construct(private readonly Connection $connection)
     {
@@ -78,6 +79,7 @@ class SearchExport
             self::TYPE_PRODUCTS => $this->products($salesChannelIds, $days),
             self::TYPE_REWRITES => $this->rewrites($salesChannelIds, $days),
             self::TYPE_CLAUDE_USAGE => $this->claudeUsage($days),
+            self::TYPE_FEEDBACK => $this->feedback($salesChannelIds, $days),
             default => throw new \InvalidArgumentException(\sprintf('Unbekannter Export-Typ „%s“', $type)),
         };
     }
@@ -211,6 +213,41 @@ class SearchExport
         );
 
         return ['columns' => $this->columns($rows, ['monat', 'modell', 'anfragen', 'input_tokens', 'output_tokens', 'cache_lesen_tokens', 'cache_schreiben_tokens', 'kosten_usd']), 'rows' => $rows];
+    }
+
+    /**
+     * Rückmeldungen zum Suchergebnis (neueste zuerst). Der Text ist eine Kundeneingabe – toCsv() entschärft
+     * Formeln, Steuerzeichen wurden schon beim Speichern entfernt.
+     *
+     * @param list<string> $salesChannelIds
+     *
+     * @return array{columns: list<string>, rows: list<array<string, mixed>>}
+     */
+    private function feedback(array $salesChannelIds, ?int $days): array
+    {
+        [$where, $params, $types] = $this->conditions('f', $salesChannelIds, null);
+        if ($days !== null && $days > 0) {
+            $where[] = 'f.created_at >= :since';
+            $params['since'] = (new \DateTimeImmutable(\sprintf('-%d days', $days)))->format(Defaults::STORAGE_DATE_TIME_FORMAT);
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT ' . $this->salesChannelColumns('f') . ',
+                    f.created_at AS datum,
+                    f.term AS suchbegriff,
+                    f.rating AS bewertung,
+                    f.hits AS treffer,
+                    f.source AS quelle,
+                    f.text AS text
+             FROM nova_search_feedback f
+             ' . $this->salesChannelJoin('f') . '
+             ' . $this->whereSql($where) . '
+             ORDER BY f.created_at DESC',
+            $params,
+            $types
+        );
+
+        return ['columns' => $this->columns($rows, ['verkaufskanal', 'verkaufskanal_id', 'datum', 'suchbegriff', 'bewertung', 'treffer', 'quelle', 'text']), 'rows' => $rows];
     }
 
     private function salesChannelColumns(string $alias): string

@@ -172,6 +172,25 @@
         }
     }
 
+    .nova-search-analytics__feedback-sum {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin: 0 0 16px;
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .nova-search-analytics__feedback-text {
+        max-width: 420px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .nova-search-analytics__nowrap {
+        white-space: nowrap;
+    }
+
     .nova-search-analytics__empty {
         padding: 24px 10px;
         text-align: center !important;

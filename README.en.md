@@ -47,6 +47,8 @@ All routes are `POST` with a JSON body and the usual `sw-access-key` / `sw-conte
 - `POST /store-api/nova-search/popular` – `{ limit? (10, max 20) }` → `{ terms: [...] }`.
 - `POST /store-api/nova-search/track` – `{ events: [{ type: "search"|"click"|"cart"|"purchase", term, productId?, total?, quantity? }] }` → `204`. Max. 20 events per call and 300 per context token and hour. `purchase` only counts if the logged-in customer actually ordered the product within 48 hours, once per token and product. Only term, product ID and counters are stored.
 
+- `POST /store-api/nova-search/feedback` (1.14.0) – `{ term, rating: "up"|"down", text? }` → `204`. Search result feedback from the app; `text` only with `down`, max. 200 characters (control characters removed). One rating per context token, term and day (and per IP); the app may send the text once later by repeating the call with `rating: "down"` and `text`. Limits: 30 per IP and hour, 1000 per sales channel and hour. Hits are determined by the server.
+
 Shopware's own `/store-api/search` also uses the learned ranking and rewrites (no counting).
 
 With the "Dynamic monthly delivery dates" plugin and its "show in listings" option enabled, search cards show the next shipping date.
@@ -106,6 +108,14 @@ Recent searches as chips (browser only, with consent), automatic highlights (bes
 ## Analytics (1.6.0)
 
 *Extensions → Nova Search* shows KPIs with comparison to the previous period, searches per day, top terms, searches without results (with Claude rewrite status), clicked products, Claude costs and CSV export per table. Daily values are counted from version 1.6.0 on.
+
+## Search result feedback (1.14.0)
+
+Below the results in the search window and on the search result page (also with 0 hits): "Gefällt Ihnen das Suchergebnis?" (*Do you like the search result?*) with thumbs up / down. Thumbs up → "Danke!"; thumbs down → optional one-line text "Was haben Sie gesucht?" (max. 200 characters) with "Senden", then "Danke!". Accessible buttons (aria-label), theme colours, mobile friendly; can be switched off per sales channel (*Configure → Search result feedback*, default on). Run `theme:compile` after the update.
+
+Stored in `nova_search_feedback`: sales channel, normalized term, number of hits (determined server-side), rating, optional text, source (search window / result page / app) and date – no IP, customer or session data; deleted after 365 days. Protection as for learning signals: existing shop session, same origin, no bots, JSON only, rate limits per IP and sales channel, one rating per visitor, term and day (hash in the object cache, not in the database). **Privacy:** the text is free input and may contain personal data – mention it in your privacy policy; single entries can be deleted.
+
+Analytics: *Extensions → Nova Search → Analytics → Feedback* – 👍/👎 per term with hits and "Synonym"/"Redirect" buttons, visitor texts with date, term, sales channel and a "Delete" button (`system_config:update`), CSV export (`rueckmeldungen.csv`, also `nova-search:export --type=feedback`).
 
 ## Roadmap
 

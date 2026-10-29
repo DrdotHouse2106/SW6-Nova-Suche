@@ -6,6 +6,7 @@ use Nova\Search\Rewrite\ClaudeBudget;
 use Nova\Search\Service\SearchAnalytics;
 use Nova\Search\Service\RewriteStore;
 use Nova\Search\Service\SearchExport;
+use Nova\Search\Service\SearchFeedback;
 use Nova\Search\Service\StatsImport;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
@@ -25,6 +26,8 @@ class AdminAnalyticsController
 {
     private ?RewriteStore $rewrites = null;
 
+    private ?SearchFeedback $feedback = null;
+
     public function __construct(
         private readonly SearchAnalytics $analytics,
         private readonly SearchExport $export,
@@ -37,6 +40,11 @@ class AdminAnalyticsController
     public function setRewriteStore(RewriteStore $rewrites): void
     {
         $this->rewrites = $rewrites;
+    }
+
+    public function setFeedback(SearchFeedback $feedback): void
+    {
+        $this->feedback = $feedback;
     }
 
     #[Route(path: '/api/_action/nova-search/analytics', name: 'api.action.nova_search.analytics', defaults: ['_acl' => ['system_config:read']], methods: ['GET'])]
@@ -54,6 +62,7 @@ class AdminAnalyticsController
                 'limitUsd' => round($this->budget->limitMicro() / 1_000_000, 2),
             ];
             $data['rewrites'] = $this->rewrites?->listRewrites($this->salesChannelId($request)) ?? [];
+            $data['feedback'] = $this->feedback?->overview($this->salesChannelId($request), (int) $data['days']);
 
             return new JsonResponse($data);
         } catch (\Throwable $e) {
@@ -142,6 +151,30 @@ class AdminAnalyticsController
             $this->rewrites->disable($salesChannelId, $term);
         } catch (\Throwable $e) {
             $this->logger->error('Nova Suche: Umschreibung konnte nicht deaktiviert werden', ['exception' => $e]);
+
+            return new JsonResponse(['message' => 'Interner Fehler. Details stehen im Shopware-Log.'], 500);
+        }
+
+        return new JsonResponse([]);
+    }
+
+    /** Rückmeldung zum Suchergebnis löschen (z. B. wenn der Text personenbezogene Daten enthält) */
+    #[Route(path: '/api/_action/nova-search/feedback/delete', name: 'api.action.nova_search.feedback.delete', defaults: ['_acl' => ['system_config:update']], methods: ['POST'])]
+    public function deleteFeedback(Request $request, Context $context): JsonResponse
+    {
+        if (!$this->isAdminUser($context)) {
+            return new JsonResponse(['message' => 'Nur für Benutzer der Administration.'], 403);
+        }
+
+        $id = $request->request->getString('id');
+        if (preg_match('/^[0-9a-f]{32}$/', $id) !== 1 || $this->feedback === null) {
+            return new JsonResponse(['message' => 'Ungültige Angaben.'], 400);
+        }
+
+        try {
+            $this->feedback->delete($id);
+        } catch (\Throwable $e) {
+            $this->logger->error('Nova Suche: Rückmeldung konnte nicht gelöscht werden', ['exception' => $e]);
 
             return new JsonResponse(['message' => 'Interner Fehler. Details stehen im Shopware-Log.'], 500);
         }

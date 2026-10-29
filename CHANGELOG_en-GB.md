@@ -1,3 +1,12 @@
+# 1.14.0
+- New: **search result feedback** – below the results in the search window and on the search result page (also with 0 hits) visitors see "Do you like the search result?" with thumbs up / down. After thumbs down an optional short text ("What were you looking for?", max. 200 characters), then "Thank you!". Accessible, follows the theme, mobile friendly
+- Can be switched off per sales channel: *Configure → Search result feedback* (default on). Run `bin/console theme:compile` after the update
+- Stored: sales channel, search term, number of hits determined by the server, rating, text, source and date – no IP addresses, customer or session data; deleted after 365 days, uninstalling without "keep data" drops the table
+- Security as for learning signals: shop session, same origin, no bots, JSON only; limits per IP and sales channel; one rating per visitor, term and day; text sanitized and output as plain text only
+- Analytics: new tab "Feedback" with 👍/👎 per term, hits, "Synonym"/"Redirect" buttons, visitor texts with "Delete" and CSV export (also `nova-search:export --type=feedback`)
+- Store API: `POST /store-api/nova-search/feedback` for the shop app
+- Privacy: README note added – the text is free input and may contain personal data
+
 # 1.13.0
 - New: **word parts** – Shopware only matches a search word at the beginning or end of a word, so "vergaser" found "Doppelvergaser" but not "Doppelvergasers" (genitive). Words of 5 or more letters now also match inside longer words; these hits rank behind exact ones
 - New: a compound search term without results is split into two parts that must both match ("vergasersatz" → "vergaser" + words ending in "satz"). The first part must be a word from the shop, the second part must end the word, which avoids random splits like "vergas" + "ersatz"

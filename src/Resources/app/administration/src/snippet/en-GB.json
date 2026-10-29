@@ -27,7 +27,8 @@
             "tabs": {
                 "terms": "Search terms",
                 "zeroResults": "No results",
-                "products": "Clicked products"
+                "products": "Clicked products",
+                "feedback": "Feedback"
             },
             "exportCsv": "Export CSV",
             "col": {
@@ -68,6 +69,28 @@
                 "disabled": "Rewrite disabled.",
                 "error": "The rewrite could not be disabled.",
                 "empty": "No stored rewrites."
+            },
+            "feedback": {
+                "hint": "What visitors clicked below “Do you like the search result?” (search window, search result page, app). Terms with more 👎 than 👍 are marked ⚠ – fix them directly with “Synonym” or “Redirect”. Hits: determined by the server at the latest feedback. Texts are free input and may contain personal data – please delete such entries. Feedback is deleted automatically after 12 months.",
+                "up": "Liked",
+                "down": "Not liked",
+                "hits": "Hits",
+                "textCount": "{count} texts",
+                "textsTitle": "Visitor texts",
+                "date": "Date",
+                "text": "Text",
+                "source": "Source",
+                "sources": {
+                    "layer": "Search window",
+                    "page": "Result page",
+                    "app": "App"
+                },
+                "delete": "Delete",
+                "confirmDelete": "Really delete the feedback for “{term}”?",
+                "deleted": "Feedback deleted.",
+                "deleteError": "The feedback could not be deleted.",
+                "empty": "No feedback in the selected period yet.",
+                "emptyTexts": "No texts in the selected period."
             }
         },
         "tabs": {

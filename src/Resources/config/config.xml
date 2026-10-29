@@ -270,6 +270,20 @@
     </card>
 
     <card>
+        <title>Search result feedback</title>
+        <title lang="de-DE">Rückmeldung zum Suchergebnis</title>
+
+        <input-field type="bool">
+            <name>feedbackActive</name>
+            <label>Ask “Do you like the search result?”</label>
+            <label lang="de-DE">„Gefällt Ihnen das Suchergebnis?“ anzeigen</label>
+            <helpText lang="de-DE">Unter den Treffern im Suchfenster und auf der Suchergebnisseite (auch bei 0 Treffern): Daumen hoch / Daumen runter, nach „Daumen runter“ optional ein kurzer Text (max. 200 Zeichen). Gespeichert werden Verkaufskanal, Suchbegriff, Trefferzahl, Bewertung, Text, Quelle und Datum – keine IP-Adressen, Kunden- oder Sitzungsdaten. Löschung nach 12 Monaten. Auswertung unter Erweiterungen → Nova Suche → Auswertung → „Rückmeldungen“. Der Text ist eine freie Eingabe und kann personenbezogene Daten enthalten – bitte in der Datenschutzerklärung erwähnen.</helpText>
+            <helpText>Below the results in the search window and on the search result page (also with 0 hits): thumbs up / down, after thumbs down an optional short text (max. 200 characters). Stored: sales channel, search term, number of hits, rating, text, source and date – no IP addresses, customer or session data. Deleted after 12 months.</helpText>
+            <defaultValue>true</defaultValue>
+        </input-field>
+    </card>
+
+    <card>
         <title>Claude (AI)</title>
         <title lang="de-DE">Claude (KI) – Suchbegriffe ohne Treffer verbessern</title>
 

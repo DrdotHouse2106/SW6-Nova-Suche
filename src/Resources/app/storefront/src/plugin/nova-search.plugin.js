@@ -1,4 +1,5 @@
 import NovaSearchTracker, { hasCookie } from './nova-search-tracker';
+import { applyFeedbackState } from './nova-search-feedback';
 
 const { PluginBaseClass } = window;
 const EXACT_KEY = 'nova-search-exact';
@@ -555,6 +556,7 @@ export default class NovaSearchPlugin extends PluginBaseClass {
         }
 
         this._renderRecentSearches();
+        applyFeedbackState(this._body);
 
         const results = this._body.querySelector('.nova-search-results');
         if (results && this._state.page === 1 && this._state.term.length >= this.options.minChars) {

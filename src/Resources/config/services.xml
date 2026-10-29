@@ -159,6 +159,9 @@
             <call method="setRewriteStore">
                 <argument type="service" id="Nova\Search\Service\RewriteStore"/>
             </call>
+            <call method="setFeedback">
+                <argument type="service" id="Nova\Search\Service\SearchFeedback"/>
+            </call>
             <tag name="messenger.message_handler"/>
         </service>
 
@@ -166,6 +169,33 @@
             <argument type="service" id="Nova\Search\Rewrite\RewriteService"/>
             <argument type="service" id="Nova\Search\Service\SearchStatistics"/>
             <argument type="service" id="logger"/>
+        </service>
+
+        <!-- Rückmeldung zum Suchergebnis -->
+        <service id="Nova\Search\Service\SearchFeedback">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+        </service>
+
+        <service id="Nova\Search\Service\FeedbackRecorder">
+            <argument type="service" id="Nova\Search\Service\SearchFeedback"/>
+            <argument type="service" id="Nova\Search\Rewrite\RewriteService"/>
+            <argument type="service" id="cache.object"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <argument type="service" id="logger"/>
+            <call method="setLimiter">
+                <argument type="service" id="Nova\Search\Service\TrafficLimiter"/>
+            </call>
+        </service>
+
+        <service id="Nova\Search\Controller\FeedbackController" public="true">
+            <argument type="service" id="Nova\Search\Service\FeedbackRecorder"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+
+        <service id="Nova\Search\StoreApi\NovaFeedbackRoute" public="true">
+            <argument type="service" id="Nova\Search\Service\FeedbackRecorder"/>
         </service>
 
         <service id="Nova\Search\Service\SearchExport">
@@ -231,6 +261,9 @@
             <argument type="service" id="logger"/>
             <call method="setRewriteStore">
                 <argument type="service" id="Nova\Search\Service\RewriteStore"/>
+            </call>
+            <call method="setFeedback">
+                <argument type="service" id="Nova\Search\Service\SearchFeedback"/>
             </call>
             <tag name="controller.service_arguments"/>
         </service>

@@ -26,6 +26,7 @@ class ExportCommand extends Command
         SearchExport::TYPE_PRODUCTS => 'suchbegriffe-produkte.csv',
         SearchExport::TYPE_REWRITES => 'claude-umschreibungen.csv',
         SearchExport::TYPE_CLAUDE_USAGE => 'claude-kosten.csv',
+        SearchExport::TYPE_FEEDBACK => 'rueckmeldungen.csv',
     ];
 
     public function __construct(private readonly SearchExport $export)
@@ -36,7 +37,7 @@ class ExportCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('type', 't', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'terms, products, rewrites, claude-usage (mehrfach möglich, Standard: alle)')
+            ->addOption('type', 't', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'terms, products, rewrites, claude-usage, feedback (mehrfach möglich, Standard: alle)')
             ->addOption('sales-channel', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Nur diese Verkaufskanal-ID(s)')
             ->addOption('days', 'd', InputOption::VALUE_REQUIRED, 'Nur Einträge der letzten N Tage')
             ->addOption('min-searches', null, InputOption::VALUE_REQUIRED, 'Suchbegriffe erst ab N Suchen', '0')

@@ -6,7 +6,7 @@ const { Component, Mixin } = Shopware;
 Component.register('nova-search-analytics', {
     template,
 
-    inject: ['loginService'],
+    inject: ['loginService', 'acl'],
 
     mixins: [Mixin.getByName('notification')],
 
@@ -18,6 +18,8 @@ Component.register('nova-search-analytics', {
             data: null,
             tab: 'terms',
             importModal: null,
+            feedbackToDelete: null,
+            isDeleting: false,
         };
     },
 
@@ -52,6 +54,18 @@ Component.register('nova-search-analytics', {
 
         seriesMax() {
             return Math.max(1, ...(this.data?.series || []).map((day) => day.searches));
+        },
+
+        feedback() {
+            return this.data?.feedback || { up: 0, down: 0, texts: 0, terms: [], entries: [] };
+        },
+
+        canEdit() {
+            return !this.acl || this.acl.can('system_config:update');
+        },
+
+        exportType() {
+            return { products: 'products', zeroResults: 'rewrites', feedback: 'feedback' }[this.tab] || 'terms';
         },
 
         claudePercent() {
@@ -229,6 +243,37 @@ Component.register('nova-search-analytics', {
                     message: error?.response?.data?.message || this.$tc('nova-search.analytics.rewrites.error'),
                 });
             }
+        },
+
+        /** Rückmeldung löschen (z. B. wenn der Text personenbezogene Daten enthält) */
+        async deleteFeedback() {
+            const entry = this.feedbackToDelete;
+            if (!entry) {
+                return;
+            }
+            this.isDeleting = true;
+            try {
+                const httpClient = Shopware.Application.getContainer('init').httpClient;
+                await httpClient.post('_action/nova-search/feedback/delete', { id: entry.id }, { headers: this.headers() });
+                this.data.feedback.entries = this.data.feedback.entries.filter((row) => row.id !== entry.id);
+                this.createNotificationSuccess({ message: this.$tc('nova-search.analytics.feedback.deleted') });
+                this.load();
+            } catch (error) {
+                this.createNotificationError({
+                    message: error?.response?.data?.message || this.$tc('nova-search.analytics.feedback.deleteError'),
+                });
+            } finally {
+                this.isDeleting = false;
+                this.feedbackToDelete = null;
+            }
+        },
+
+        formatDate(value) {
+            if (!value) {
+                return '–';
+            }
+            const date = new Date(value.replace(' ', 'T'));
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
         },
 
         /** „Beheben“: Synonym- bzw. Weiterleitungsliste mit vorbelegtem Begriff öffnen */

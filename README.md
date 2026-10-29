@@ -23,6 +23,7 @@ Die Suche **lernt dabei mit**: Was Kunden suchen, anklicken, in den Warenkorb le
 - **Passende Kategorien** als Schnellzugriff, z. B. „Bremsanlage 2CV6“
 - **Automatisches Nachladen** weiterer Produkte beim Scrollen
 - Suchwörter werden hervorgehoben
+- **„Gefällt Ihnen das Suchergebnis?“** unter den Treffern (Suchfenster und Suchergebnisseite, auch bei 0 Treffern) – siehe *Rückmeldung zum Suchergebnis*
 
 **Bedienung**
 - Enter öffnet die volle Ergebnisseite, Esc oder ✕ schließt das Fenster
@@ -151,6 +152,21 @@ Antwort immer `204`. Es gelten dieselben Regeln wie im Suchfenster: max. 20 Erei
 
 `purchase` zählt nur, wenn der angemeldete Kunde (auch Gast) dieses Produkt in den **letzten 48 Stunden wirklich bestellt** hat, und je Kontext-Token und Produkt nur einmal. So lassen sich keine Käufe erfinden.
 
+### Rückmeldung zum Suchergebnis
+
+```http
+POST /store-api/nova-search/feedback
+{ "term": "vergaser", "rating": "down", "text": "Doppelvergaser für den 2CV" }
+```
+
+| Feld | Pflicht | Bedeutung |
+|---|---|---|
+| `term` | ja | Suchbegriff, zu dem das Ergebnis bewertet wird (wird normalisiert; E-Mail-Adressen, Telefonnummern und Links werden verworfen) |
+| `rating` | ja | `up` (gefällt) oder `down` (gefällt nicht) |
+| `text` | nein | Nur bei `down`: „Was haben Sie gesucht?“, max. 200 Zeichen (Steuerzeichen werden entfernt, Längeres abgeschnitten) |
+
+Antwort immer `204`. Je Kontext-Token, Begriff und Tag zählt **eine** Bewertung (zusätzlich je Client-IP); einen Text kann die App einmal nachreichen, indem sie denselben Aufruf mit `rating: "down"` und `text` wiederholt. Grenzen: 30 Rückmeldungen je IP und Stunde, 1000 je Verkaufskanal und Stunde. Die Trefferzahl ermittelt der Server selbst. Gespeichert wird mit der Quelle „App“ – ohne Token, Kunden- oder Bestelldaten. Ist „Gefällt Ihnen das Suchergebnis? anzeigen“ im Verkaufskanal aus, wird nichts gespeichert.
+
 ### Shopwares eigene Suche
 
 Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und gespeicherte Umschreibungen (die Plugin-Logik sitzt im Such-Builder). Dort wird nichts gezählt – die App kann bei Fehlern also gefahrlos darauf zurückfallen.
@@ -165,6 +181,7 @@ Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und
 - **Suchbegriffe** mit Suchen, Klicks, Klickrate, Warenkorb, Käufen – ⚠ markiert Begriffe, die oft gesucht, aber nie angeklickt wurden (Treffer passen nicht)
 - **Ohne Treffer** mit Stand der Claude-Umschreibung und Knöpfen „Synonym“/„Weiterleitung“ zum direkten Beheben; darunter alle **gespeicherten Umschreibungen** (von Claude oder gelernt) mit Knopf „Deaktivieren“
 - **Geklickte Produkte** (Link zum Produkt in der Administration)
+- **Rückmeldungen** (1.14.0): 👍/👎 je Suchbegriff mit Trefferzahl (⚠ = mehr 👎 als 👍) und Knöpfen „Synonym“/„Weiterleitung“, darunter die Texte der Besucher (Datum, Begriff, Verkaufskanal, Text, Quelle) mit Knopf „Löschen“
 - **Claude-Kosten** des laufenden Monats im Verhältnis zum Limit
 - **CSV-Export** je Tabelle (Excel-tauglich, gleiche Daten wie `nova-search:export`)
 - Knopf **„Einstellungen“** führt direkt zur Plugin-Konfiguration
@@ -172,6 +189,23 @@ Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und
 Tageswerte werden ab Version 1.6.0 gezählt; frühere Zeiträume sind leer (Gesamtzahlen gibt es weiter im CSV-Export). Gespeichert werden nur Begriffe und Zähler (zum Personenbezug von Suchbegriffen siehe *Datenschutz*); Tageswerte werden nach 2 Jahren gelöscht.
 
 **Berechtigungen (1.12.0):** Auswertung, Export sowie Synonyme/Weiterleitungen/Hinweise ansehen braucht die Berechtigung *Einstellungen lesen* (`system_config:read`), Anlegen, Ändern, Importieren und Deaktivieren *Einstellungen bearbeiten* (`system_config:update`) – dieselben Rechte wie für die Plugin-Konfiguration. Administratoren haben sie immer.
+
+## Rückmeldung zum Suchergebnis
+
+Unter den Treffern im Suchfenster und auf der Suchergebnisseite (auch bei 0 Treffern) steht dezent:
+
+> Gefällt Ihnen das Suchergebnis? 👍 👎
+
+- **Daumen hoch** → „Danke!“
+- **Daumen runter** → einzeilige Eingabe „Was haben Sie gesucht?“ (optional, max. 200 Zeichen) mit Knopf „Senden“, danach „Danke!“
+
+Die Knöpfe haben Beschriftungen für Screenreader, die Rückmeldung wird angesagt (`role="status"`), die Gestaltung nutzt die Farben und Rahmen des Themes. Pro Verkaufskanal abschaltbar: *Konfigurieren → Rückmeldung zum Suchergebnis* (Standard an). Nach dem Update einmal `bin/console theme:compile`.
+
+**Gespeichert** (Tabelle `nova_search_feedback`): Verkaufskanal, normalisierter Suchbegriff, Trefferzahl (vom Server per Produktsuche ermittelt, nicht vom Browser übernommen), Bewertung, optionaler Text, Quelle (Suchfenster, Ergebnisseite, App) und Datum. **Keine** IP-Adressen, Kunden- oder Sitzungsdaten. Löschung nach 365 Tagen.
+
+**Schutz vor Missbrauch** (wie bei den Lernsignalen): nur mit bestehender Shop-Sitzung, von derselben Website und ohne Bots, nur als JSON (ein fremdes Formular kann das nicht senden), 30 Rückmeldungen je IP und Stunde, 1000 je Verkaufskanal und Stunde, **eine Bewertung je Besucher, Begriff und Tag** (Merker als Hash von Sitzung bzw. IP im Objekt-Cache, nicht in der Datenbank), Text nur zur eigenen „Daumen runter“-Bewertung und nur einmal. Der Text wird getrimmt, Steuer- und unsichtbare Zeichen werden entfernt, nach 200 Zeichen abgeschnitten und überall als reiner Text ausgegeben.
+
+**Auswertung:** *Erweiterungen → Nova Suche → Auswertung → Rückmeldungen* (Zeitraum und Verkaufskanal wie die übrigen Tabellen, CSV-Export `rueckmeldungen.csv`, Löschen einzelner Einträge mit der Berechtigung *Einstellungen bearbeiten*).
 
 ## Suchdaten aus einem bisherigen Suchdienst übernehmen
 
@@ -295,17 +329,18 @@ bin/console nova-search:export --sales-channel=<ID> --output=/tmp/export
 | `suchbegriffe-produkte.csv` | Begriff × Produkt (Nummer, Name) mit Klicks, Warenkorb, Käufen |
 | `claude-umschreibungen.csv` | Begriffe ohne Treffer, Umschreibung durch Claude, Status, Treffer |
 | `claude-kosten.csv` | Claude-Verbrauch je Monat und Modell: Anfragen, Tokens, Kosten in USD (für alle Verkaufskanäle zusammen) |
+| `rueckmeldungen.csv` | Rückmeldungen zum Suchergebnis: Datum, Begriff, Bewertung, Treffer, Quelle, Text |
 
 | Option | Bedeutung |
 |---|---|
-| `--type` | `terms`, `products`, `rewrites`, `claude-usage` (mehrfach möglich, Standard: alle) |
+| `--type` | `terms`, `products`, `rewrites`, `claude-usage`, `feedback` (mehrfach möglich, Standard: alle) |
 | `--sales-channel` | nur diese Verkaufskanal-ID(s) |
 | `--days` | nur Einträge der letzten N Tage |
 | `--min-searches` | Suchbegriffe erst ab N Suchen |
 | `--output` | Zielordner (Standard `nova-search-export`) |
 | `--delimiter` | Trennzeichen (Standard `;` für deutsches Excel) |
 
-Die Dateien sind UTF-8 mit BOM (Umlaute in Excel korrekt). Suchbegriffe, die Excel als Formel ausführen würde (z. B. `=…`), werden mit einem Apostroph entschärft. Sie enthalten **keine Kundendaten** – nur Suchbegriffe, Produkte und Zähler.
+Die Dateien sind UTF-8 mit BOM (Umlaute in Excel korrekt). Suchbegriffe, die Excel als Formel ausführen würde (z. B. `=…`), werden mit einem Apostroph entschärft. Sie enthalten **keine Kundendaten** – nur Suchbegriffe, Produkte und Zähler. Ausnahme: Die Texte in `rueckmeldungen.csv` sind freie Eingaben der Besucher und können personenbezogene Daten enthalten.
 
 ## Datenschutz
 
@@ -316,6 +351,7 @@ Die Dateien sind UTF-8 mit BOM (Umlaute in Excel korrekt). Suchbegriffe, die Exc
   - *Statistik* → „Suche: Käufe Suchbegriffen zuordnen“: Cookie `nova-search-attr` merkt sich bis zu 2 Tage, welches Produkt über welchen Begriff gefunden wurde; wird nach der Bestellung gelöscht. Ohne Zustimmung werden nur anonyme Suchen und Klicks gezählt.
   - *Komfortfunktionen* → „Zuletzt angesehene Produkte merken“: Liste im localStorage (`nova-recently-viewed`), verlässt nie den Browser. Die Zustimmungspflicht ist abschaltbar.
 - **Missbrauchsschutz:** Signale aus dem Suchfenster nur mit bestehender Shop-Sitzung von derselben Website und ohne Bots; max. 20 Ereignisse pro Aufruf, 300 pro Sitzung und Stunde, 600 je IP und Stunde und eine Obergrenze je Verkaufskanal; Klicks, Warenkorb und Korrekturen je IP und Tag einmal; nur existierende Produkte; öffentlich wirksam (beliebte Begriffe, Ranking, Highlights, gelernte Korrekturen) wird nur, was die stündliche Prüfung gegen die echte Suche bestätigt. Neue Begriffe für Claude und Schwestershop-Suchen sind je IP begrenzt.
+- **Rückmeldung zum Suchergebnis (1.14.0):** gespeichert werden Verkaufskanal, Suchbegriff, Trefferzahl, Bewertung, Quelle, Datum und der freiwillige Text – ohne IP, Kunden- oder Sitzungsbezug; gelöscht nach 365 Tagen. Der Text ist eine freie Eingabe: Schreibt jemand Name, E-Mail-Adresse oder Telefonnummer hinein, wird das so gespeichert und im Admin angezeigt. Das gehört in die Datenschutzerklärung (Vorschlag: „Sie können das Suchergebnis freiwillig bewerten und einen kurzen Text senden. Gespeichert werden nur Suchbegriff, Bewertung und Text, ohne IP-Adresse und ohne Bezug zu Ihrem Kundenkonto; gelöscht wird nach 12 Monaten.“). Einträge mit personenbezogenen Daten lassen sich in der Auswertung einzeln löschen. Abschaltbar je Verkaufskanal.
 - Einträge, die ein Jahr lang nicht vorkamen, werden automatisch gelöscht; beobachtete Korrekturen und nie gelöste Begriffe nach 180 Tagen. Beim Deinstallieren ohne „Daten behalten“ werden alle Tabellen entfernt.
 
 ## Installation
@@ -364,6 +400,7 @@ bin/console cache:clear
 | Warnschwelle (% des Limits) | 80 | Einmaliger Hinweis im Log pro Monat |
 | Neue Begriffe auf der Suchergebnisseite sofort auswerten | aus | |
 | Wörter auch innerhalb zusammengesetzter Wörter finden | an | Siehe „Wortteile“ |
+| „Gefällt Ihnen das Suchergebnis?“ anzeigen | an | Daumen hoch/runter unter den Treffern, siehe „Rückmeldung zum Suchergebnis“ |
 
 Die Mindestlänge des Suchbegriffs kommt aus Shopwares Sucheinstellungen (*Einstellungen → Suche*).
 
@@ -392,7 +429,8 @@ Templates erweitern (`views/storefront/nova-search/`):
 | `card.html.twig` | Produktkarte | `nova_search_card` |
 | `items.html.twig` | Nachgeladene Karten | – |
 | `layout/header/search.html.twig` | Rahmen des Fensters | `nova_search_layer_template` |
-| `page/search/index.html.twig` | Hinweis auf der Suchergebnisseite | `page_search_headline_text` |
+| `page/search/index.html.twig` | Hinweis und Rückmeldung auf der Suchergebnisseite | `page_search_headline_text`, `page_search` |
+| `feedback.html.twig` | „Gefällt Ihnen das Suchergebnis?“ | `nova_search_feedback` |
 
 ### Schnittstelle für andere Plugins (z. B. Tag Manager)
 
@@ -433,6 +471,12 @@ Geplante Funktionen (Synonyme, Weiterleitungen, Auswertungen in der Administrati
 
 
 Hier sammeln wir Hürden, die bei Installation und Betrieb tatsächlich aufgetreten sind. **Neue Probleme bitte ergänzen** (oder als Issue melden), damit andere nicht lange suchen müssen.
+
+### „Gefällt Ihnen das Suchergebnis?“ erscheint nicht oder sieht ungestaltet aus
+
+**Ursache:** Schalter *Konfigurieren → Rückmeldung zum Suchergebnis* im Verkaufskanal aus, oder Theme nach dem Update nicht neu kompiliert
+
+**Lösung:** Schalter prüfen, dann `bin/console theme:compile` und `bin/console cache:clear`. In der Auswertung tauchen Rückmeldungen erst auf, wenn ein Besucher mit Shop-Sitzung geklickt hat (Bots und Aufrufe ohne Sitzung werden verworfen)
 
 ### Nummer wird nicht gefunden
 

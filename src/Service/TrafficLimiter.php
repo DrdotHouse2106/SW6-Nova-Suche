@@ -26,6 +26,8 @@ class TrafficLimiter
     public const CLAUDE_SYNC = 'claude-sync';
     /** Schwestershop-Suchen bei 0 Treffern */
     public const PARTNER = 'partner';
+    /** Rückmeldungen zum Suchergebnis (Daumen hoch/runter, Freitext) */
+    public const FEEDBACK = 'feedback';
 
     /** @var array<string, array{ip: int, global: int, failOpen: bool}> */
     private const LIMITS = [
@@ -33,6 +35,7 @@ class TrafficLimiter
         self::PENDING => ['ip' => 30, 'global' => 300, 'failOpen' => false],
         self::CLAUDE_SYNC => ['ip' => 3, 'global' => 30, 'failOpen' => false],
         self::PARTNER => ['ip' => 120, 'global' => 3000, 'failOpen' => true],
+        self::FEEDBACK => ['ip' => 30, 'global' => 1000, 'failOpen' => false],
     ];
 
     /** @var array<string, RateLimiterFactory> */

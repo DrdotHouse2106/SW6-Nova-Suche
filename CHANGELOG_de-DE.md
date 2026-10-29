@@ -1,3 +1,12 @@
+# 1.14.0
+- Neu: **Rückmeldung zum Suchergebnis** – unter den Treffern im Suchfenster und auf der Suchergebnisseite (auch bei 0 Treffern) steht „Gefällt Ihnen das Suchergebnis?“ mit Daumen hoch / Daumen runter. Nach „Daumen runter“ optional ein kurzer Text („Was haben Sie gesucht?“, max. 200 Zeichen), danach „Danke!“. Barrierearm, passend zum Theme, auch auf dem Handy
+- Pro Verkaufskanal abschaltbar: *Konfigurieren → Rückmeldung zum Suchergebnis* (Standard an). Nach dem Update `bin/console theme:compile`
+- Gespeichert werden Verkaufskanal, Suchbegriff, vom Server ermittelte Trefferzahl, Bewertung, Text, Quelle und Datum – keine IP-Adressen, Kunden- oder Sitzungsdaten; Löschung nach 365 Tagen, Deinstallation ohne „Daten behalten“ entfernt die Tabelle
+- Sicherheit wie bei den Lernsignalen: nur mit Shop-Sitzung, von derselben Website, ohne Bots und nur als JSON; Grenzen je IP und Verkaufskanal; eine Bewertung je Besucher, Begriff und Tag; Text bereinigt und nur als reiner Text ausgegeben
+- Auswertung: neuer Reiter „Rückmeldungen“ mit 👍/👎 je Begriff, Trefferzahl, Knöpfen „Synonym“/„Weiterleitung“, den Texten der Besucher mit „Löschen“ und CSV-Export (auch `nova-search:export --type=feedback`)
+- Store-API: `POST /store-api/nova-search/feedback` für die Shop-App
+- Datenschutz: Hinweis in der README ergänzt – der Text ist eine freie Eingabe und kann personenbezogene Daten enthalten
+
 # 1.13.0
 - Neu: **Wortteile** – Shopware findet ein Suchwort nur am Wortanfang oder -ende. „vergaser“ fand deshalb „Doppelvergaser“, aber nicht „Komplettsatz zur Überholung des Doppelvergasers“ (Genitiv). Jetzt finden Wörter ab 5 Buchstaben auch Wörter, die sie mittendrin enthalten. Diese Treffer stehen hinter den genauen
 - Neu: Ein zusammengesetzter Suchbegriff ohne Treffer wird in zwei Teile zerlegt, die beide passen müssen: „vergasersatz“ → „vergaser“ + Wörter auf „…satz“. Der erste Teil muss ein Wort aus dem Shop sein, der zweite steht am Wortende, so entstehen keine Zufallstreffer wie „vergas“ + „ersatz“

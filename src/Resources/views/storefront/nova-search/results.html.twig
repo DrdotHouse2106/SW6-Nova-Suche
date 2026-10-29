@@ -288,5 +288,10 @@
                 {% endblock %}
             </div>
         {% endif %}
+
+        {# Rückmeldung zum Suchergebnis – auch bei 0 Treffern, nicht bei einer reinen Weiterleitung #}
+        {% if not (redirect|default(null) and total == 0 and filterCount == 0) %}
+            {% sw_include '@NovaSearch/storefront/nova-search/feedback.html.twig' with { novaFeedbackTerm: term, novaFeedbackSource: 'layer' } %}
+        {% endif %}
     </div>
 {% endblock %}

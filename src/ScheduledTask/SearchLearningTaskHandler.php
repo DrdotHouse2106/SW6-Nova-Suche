@@ -5,6 +5,7 @@ namespace Nova\Search\ScheduledTask;
 use Nova\Search\Rewrite\RewriteService;
 use Nova\Search\Service\NumberIndex;
 use Nova\Search\Service\RewriteStore;
+use Nova\Search\Service\SearchFeedback;
 use Nova\Search\Service\SearchStatistics;
 use Nova\Search\Service\SignalVerifier;
 use Psr\Log\LoggerInterface;
@@ -19,6 +20,8 @@ final class SearchLearningTaskHandler extends ScheduledTaskHandler
     private ?SignalVerifier $verifier = null;
 
     private ?RewriteStore $rewrites = null;
+
+    private ?SearchFeedback $feedback = null;
 
     /**
      * @param EntityRepository<ScheduledTaskCollection> $scheduledTaskRepository
@@ -43,6 +46,11 @@ final class SearchLearningTaskHandler extends ScheduledTaskHandler
         $this->rewrites = $rewrites;
     }
 
+    public function setFeedback(SearchFeedback $feedback): void
+    {
+        $this->feedback = $feedback;
+    }
+
     public function run(): void
     {
         // Nummern-Index: beim ersten Lauf und nach geänderten Einstellungen komplett neu aufbauen
@@ -54,5 +62,7 @@ final class SearchLearningTaskHandler extends ScheduledTaskHandler
         $this->verifier?->run();
         $this->statistics->cleanup();
         $this->rewrites?->cleanup();
+        // Rückmeldungen zum Suchergebnis nach 365 Tagen löschen
+        $this->feedback?->cleanup();
     }
 }

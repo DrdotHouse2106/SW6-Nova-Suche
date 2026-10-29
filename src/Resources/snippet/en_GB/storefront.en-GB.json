@@ -78,6 +78,15 @@
         "requestMailIntro": "A customer requested a part via the search that was not found.",
         "requestMailTerm": "Search term",
         "requestMailShop": "Shop",
-        "rewriteHintPartner": "Nothing for “%original%” in this shop – similar results for “%rewrite%”:"
+        "rewriteHintPartner": "Nothing for “%original%” in this shop – similar results for “%rewrite%”:",
+        "feedback": {
+            "question": "Do you like the search result?",
+            "up": "Yes, I like the search result",
+            "down": "No, I do not like the search result",
+            "textLabel": "What were you looking for?",
+            "textPlaceholder": "Optional, max. 200 characters",
+            "send": "Send",
+            "thanks": "Thank you!"
+        }
     }
 }

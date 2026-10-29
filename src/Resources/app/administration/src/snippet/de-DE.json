@@ -27,7 +27,8 @@
             "tabs": {
                 "terms": "Suchbegriffe",
                 "zeroResults": "Ohne Treffer",
-                "products": "Geklickte Produkte"
+                "products": "Geklickte Produkte",
+                "feedback": "Rückmeldungen"
             },
             "exportCsv": "CSV exportieren",
             "col": {
@@ -68,6 +69,28 @@
                 "disabled": "Umschreibung deaktiviert.",
                 "error": "Die Umschreibung konnte nicht deaktiviert werden.",
                 "empty": "Keine gespeicherten Umschreibungen."
+            },
+            "feedback": {
+                "hint": "Was Besucher unter „Gefällt Ihnen das Suchergebnis?“ angeklickt haben (Suchfenster, Suchergebnisseite, App). Begriffe mit mehr 👎 als 👍 sind mit ⚠ markiert – mit „Synonym“ oder „Weiterleitung“ direkt beheben. Trefferzahl: vom Server ermittelt bei der jüngsten Rückmeldung. Die Texte sind freie Eingaben und können personenbezogene Daten enthalten – solche Einträge bitte löschen. Rückmeldungen werden nach 12 Monaten automatisch gelöscht.",
+                "up": "Gefällt",
+                "down": "Gefällt nicht",
+                "hits": "Treffer",
+                "textCount": "{count} Texte",
+                "textsTitle": "Texte der Besucher",
+                "date": "Datum",
+                "text": "Text",
+                "source": "Quelle",
+                "sources": {
+                    "layer": "Suchfenster",
+                    "page": "Ergebnisseite",
+                    "app": "App"
+                },
+                "delete": "Löschen",
+                "confirmDelete": "Rückmeldung zu „{term}“ wirklich löschen?",
+                "deleted": "Rückmeldung gelöscht.",
+                "deleteError": "Die Rückmeldung konnte nicht gelöscht werden.",
+                "empty": "Noch keine Rückmeldungen im gewählten Zeitraum.",
+                "emptyTexts": "Keine Texte im gewählten Zeitraum."
             }
         },
         "tabs": {

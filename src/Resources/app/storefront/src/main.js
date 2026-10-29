@@ -1,3 +1,5 @@
+import initSearchFeedback from './plugin/nova-search-feedback';
+
 /*
  * Nova Suche – Storefront-Einstiegspunkt
  * Das Plugin wird erst geladen, wenn das Suchformular der Sofortsuche existiert.
@@ -7,6 +9,11 @@ window.PluginManager.register(
     () => import('./plugin/nova-search.plugin'),
     '[data-nova-search]'
 );
+
+/*
+ * „Gefällt Ihnen das Suchergebnis?“ – auf der Suchergebnisseite auch ohne Sofortsuche
+ */
+initSearchFeedback();
 
 /*
  * „Teil anfragen“: Kontaktformular mit Betreff und Suchbegriff vorausfüllen
