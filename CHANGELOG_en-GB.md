@@ -1,3 +1,6 @@
+# 1.14.1
+- German storefront texts of the search layer now consistently use the formal „Sie“
+
 # 1.14.0
 - New: **search result feedback** – below the results in the search window and on the search result page (also with 0 hits) visitors see "Do you like the search result?" with thumbs up / down. After thumbs down an optional short text ("What were you looking for?", max. 200 characters), then "Thank you!". Accessible, follows the theme, mobile friendly
 - Can be switched off per sales channel: *Configure → Search result feedback* (default on). Run `bin/console theme:compile` after the update

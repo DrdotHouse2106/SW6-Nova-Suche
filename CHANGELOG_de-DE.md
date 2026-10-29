@@ -1,3 +1,6 @@
+# 1.14.1
+- Suchfenster spricht Besucher jetzt durchgehend mit „Sie“ an („Was suchen Sie?“, Hinweis bei 0 Treffern)
+
 # 1.14.0
 - Neu: **Rückmeldung zum Suchergebnis** – unter den Treffern im Suchfenster und auf der Suchergebnisseite (auch bei 0 Treffern) steht „Gefällt Ihnen das Suchergebnis?“ mit Daumen hoch / Daumen runter. Nach „Daumen runter“ optional ein kurzer Text („Was haben Sie gesucht?“, max. 200 Zeichen), danach „Danke!“. Barrierearm, passend zum Theme, auch auf dem Handy
 - Pro Verkaufskanal abschaltbar: *Konfigurieren → Rückmeldung zum Suchergebnis* (Standard an). Nach dem Update `bin/console theme:compile`

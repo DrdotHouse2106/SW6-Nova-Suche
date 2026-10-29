@@ -2,7 +2,7 @@
     "name": "nova/nova-search",
     "description": "Lernendes Suchfenster für Shopware 6: Sofortsuche, Lernen aus Klicks und Käufen, Claude für Suchbegriffe ohne Treffer",
     "type": "shopware-platform-plugin",
-    "version": "1.14.0",
+    "version": "1.14.1",
     "license": "MIT",
     "authors": [
         {
