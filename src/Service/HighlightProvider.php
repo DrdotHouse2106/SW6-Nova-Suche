@@ -97,7 +97,7 @@ class HighlightProvider
         return array_map('strval', $this->connection->fetchFirstColumn(
             'SELECT LOWER(HEX(`product_id`))
              FROM `nova_search_term_product`
-             WHERE `sales_channel_id` = :sc AND COALESCE(`updated_at`, `created_at`) >= :since
+             WHERE `sales_channel_id` = :sc AND `verified` = 1 AND COALESCE(`updated_at`, `created_at`) >= :since
              GROUP BY `product_id`
              ORDER BY SUM(`clicks` + 3 * `carts` + 5 * `orders`) DESC
              LIMIT ' . self::LIMIT,

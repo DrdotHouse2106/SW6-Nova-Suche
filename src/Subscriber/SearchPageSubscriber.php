@@ -7,6 +7,7 @@ use Nova\Search\Search\LearningProductSearchBuilder;
 use Nova\Search\Service\RewriteStore;
 use Nova\Search\Service\SearchCountGuard;
 use Nova\Search\Service\SearchStatistics;
+use Nova\Search\Service\TrafficLimiter;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Product\SalesChannel\Search\AbstractProductSearchRoute;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -17,12 +18,15 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * Suchergebnisseite (Enter im Suchfeld):
  *  - zählt die Suche (die Seite wird nicht HTTP-gecacht) – ohne Bots, je Begriff und Sitzung einmal in 30 Minuten
- *  - merkt Begriffe ohne Treffer für die Claude-Auswertung vor
- *  - optional: wertet einen neuen Begriff sofort aus (kurzer Timeout) und zeigt direkt passende Treffer
+ *  - merkt Begriffe ohne Treffer für die Claude-Auswertung vor (keine Bots, mit Mengenbegrenzung)
+ *  - optional: wertet einen neuen Begriff sofort aus (kurzer Timeout) und zeigt direkt passende Treffer –
+ *    höchstens wenige Male je Client-IP und Stunde, damit Zufallsbegriffe keine PHP-Prozesse binden
  */
 class SearchPageSubscriber implements EventSubscriberInterface
 {
     private const SYNC_TIMEOUT = 4.0;
+
+    private ?TrafficLimiter $limiter = null;
 
     public function __construct(
         private readonly SearchStatistics $statistics,
@@ -32,6 +36,11 @@ class SearchPageSubscriber implements EventSubscriberInterface
         private readonly SystemConfigService $config,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
     }
 
     public static function getSubscribedEvents(): array
@@ -65,11 +74,16 @@ class SearchPageSubscriber implements EventSubscriberInterface
                 return;
             }
 
-            $known = $this->rewrites->isKnown($salesChannelId, $term);
-            $this->rewrites->markPending($salesChannelId, $term);
+            if (SearchCountGuard::isBot($request) || $this->rewrites->isKnown($salesChannelId, $term)) {
+                return;
+            }
+
+            $this->rewrites->queue($salesChannelId, $term, $this->limiter);
 
             // Sofort-Auswertung nur für neue Begriffe – jeder Begriff wird höchstens einmal angefragt
-            if ($known || !$this->config->getBool('NovaSearch.config.claudeSyncOnSearchPage', $salesChannelId)) {
+            if (!$this->config->getBool('NovaSearch.config.claudeSyncOnSearchPage', $salesChannelId)
+                || $this->limiter === null
+                || !$this->limiter->allow(TrafficLimiter::CLAUDE_SYNC, $salesChannelId, 1, $request)) {
                 return;
             }
 

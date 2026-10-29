@@ -44,14 +44,31 @@
                 "pending": "waiting",
                 "none": "no rewrite found",
                 "error": "failed",
-                "done": "rewritten"
+                "done": "rewritten",
+                "review": "being checked",
+                "disabled": "disabled"
             },
             "empty": "No data in this period.",
             "emptyZero": "No searches without results – great!",
             "claudeTitle": "Claude costs this month",
             "claudeSpent": "{spent} $ of {limit} $ used ({month})",
             "fixSynonym": "Synonym",
-            "fixRedirect": "Redirect"
+            "fixRedirect": "Redirect",
+            "rewrites": {
+                "title": "Stored rewrites",
+                "hint": "These terms are automatically searched as a different term – found by Claude or learned from visitor corrections. Disabling switches a rewrite off permanently; the term is then neither learned again nor sent to Claude.",
+                "rewrite": "Searched as",
+                "source": "Source",
+                "status": "Status",
+                "sources": {
+                    "learned": "learned",
+                    "claude": "Claude"
+                },
+                "disable": "Disable",
+                "disabled": "Rewrite disabled.",
+                "error": "The rewrite could not be disabled.",
+                "empty": "No stored rewrites."
+            }
         },
         "tabs": {
             "analytics": "Analytics",

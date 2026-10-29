@@ -27,6 +27,11 @@ class RewriteService
     private const TERMS_PER_REQUEST = 30;
     private const BACKGROUND_TIMEOUT = 60.0;
 
+    /** Gelernte Korrekturen: Mindestanzahl (falls nicht eingestellt) und verschiedene Tage */
+    public const DEFAULT_CORRECTION_MIN_COUNT = 2;
+    public const CORRECTION_MIN_DAYS = 2;
+    private const CORRECTIONS_PER_RUN = 50;
+
     /** @var array<string, SalesChannelContext> */
     private array $contexts = [];
 
@@ -44,11 +49,11 @@ class RewriteService
     /**
      * Hintergrund-Lauf (Scheduled Task / Konsolenbefehl).
      *
-     * @return array{processed: int, saved: int, rechecked: int}
+     * @return array{processed: int, saved: int, rechecked: int, learned: int}
      */
     public function run(int $limitPerSalesChannel = self::TERMS_PER_REQUEST): array
     {
-        $stats = ['processed' => 0, 'saved' => 0, 'rechecked' => $this->recheck()];
+        $stats = ['processed' => 0, 'saved' => 0, 'rechecked' => $this->recheck(), 'learned' => $this->learnCorrections()];
 
         foreach ($this->store->pending($limitPerSalesChannel) as $salesChannelId => $terms) {
             if (!$this->suggester->isAvailable($salesChannelId)) {
@@ -121,23 +126,87 @@ class RewriteService
     }
 
     /**
+     * Beobachtete Korrekturen übernehmen – nur wenn der Begriff selbst nichts findet und die Korrektur
+     * Treffer liefert (dieselbe Prüfung wie bei Claude). Gezählt wird je Besucher und Tag einmal,
+     * nötig sind mindestens „correctionMinCount“ Beobachtungen an mindestens zwei Tagen.
+     */
+    public function learnCorrections(): int
+    {
+        $learned = 0;
+        $done = [];
+        foreach ($this->store->learnCandidates(self::DEFAULT_CORRECTION_MIN_COUNT, self::CORRECTION_MIN_DAYS, self::CORRECTIONS_PER_RUN) as $row) {
+            $salesChannelId = $row['sc'];
+            $key = $salesChannelId . '|' . $row['term'];
+            $min = max(self::DEFAULT_CORRECTION_MIN_COUNT, $this->config->getInt('NovaSearch.config.correctionMinCount', $salesChannelId));
+
+            try {
+                // Geprüft wird erst wieder nach einer neuen Beobachtung
+                $this->store->markRefinementChecked($salesChannelId, $row['term'], $row['target']);
+                if (isset($done[$key]) || $row['count'] < $min
+                    || $this->config->get('NovaSearch.config.learnCorrections', $salesChannelId) === false
+                    || $this->config->get('NovaSearch.config.learningActive', $salesChannelId) === false
+                    // Begriff hat schon eine aktive Umschreibung (Claude oder früher gelernt)
+                    || $this->store->find($salesChannelId, $row['term']) !== null) {
+                    continue;
+                }
+
+                $context = $this->context($salesChannelId);
+                $targetHits = $this->hits($row['target'], $context);
+                if ($targetHits > 0 && $this->hits($row['term'], $context) === 0) {
+                    $this->store->saveLearned($salesChannelId, $row['term'], $row['target'], $targetHits);
+                    $done[$key] = true;
+                    ++$learned;
+                }
+            } catch (\Throwable $e) {
+                $this->logger->warning('Nova Suche: Korrektur konnte nicht geprüft werden', ['exception' => $e]);
+            }
+        }
+
+        return $learned;
+    }
+
+    /** Trefferanzahl der echten Produktsuche (ohne Umschreibungen und gelerntes Ranking) */
+    public function total(string $salesChannelId, string $term, ?Criteria $criteria = null, bool $withRewrites = false): int
+    {
+        return $this->hits($term, $this->context($salesChannelId), $criteria, $withRewrites);
+    }
+
+    /**
      * Nach 30 Tagen prüfen: Findet der ursprüngliche Begriff inzwischen selbst etwas (neues Sortiment)?
      * Dann wird die Umschreibung gelöscht. Begriffe ohne gefundene Umschreibung bekommen eine neue Chance.
+     * Gelernte Korrekturen aus älteren Versionen (Status „review“) werden sofort geprüft und bei
+     * Nichtbestehen deaktiviert.
      */
     private function recheck(): int
     {
         $count = 0;
         foreach ($this->store->dueForRecheck(100) as $row) {
             try {
-                $hits = $this->hits($row['term'], $this->context($row['sc']));
+                $context = $this->context($row['sc']);
+                $hits = $this->hits($row['term'], $context);
+                $rewriteHits = $row['status'] !== RewriteStore::STATUS_NONE && $hits === 0 && $row['rewrite'] !== null
+                    ? $this->hits($row['rewrite'], $context)
+                    : 0;
             } catch (\Throwable $e) {
                 $this->logger->warning('Nova Suche: Prüfung fehlgeschlagen', ['exception' => $e]);
                 continue;
             }
 
-            if ($hits > 0) {
+            if ($row['status'] === RewriteStore::STATUS_REVIEW) {
+                if ($rewriteHits > 0) {
+                    $this->store->confirm($row['sc'], $row['term'], $rewriteHits);
+                } else {
+                    $this->store->disable($row['sc'], $row['term']);
+                }
+            } elseif ($hits > 0) {
                 // Begriff findet selbst Treffer → Umschreibung überflüssig
                 $this->store->delete($row['sc'], $row['term']);
+            } elseif ($row['status'] === RewriteStore::STATUS_DONE && $rewriteHits === 0) {
+                // Umschreibung findet nichts mehr → entfernen; Claude-Begriffe neu auswerten
+                $this->store->delete($row['sc'], $row['term']);
+                if ($row['source'] !== RewriteStore::SOURCE_LEARNED) {
+                    $this->store->markPending($row['sc'], $row['term']);
+                }
             } elseif ($row['status'] === RewriteStore::STATUS_NONE) {
                 // Damals keine Lösung gefunden → mit aktuellem Sortiment erneut versuchen
                 $this->store->delete($row['sc'], $row['term']);
@@ -152,14 +221,15 @@ class RewriteService
         return $count;
     }
 
-    /** Trefferanzahl der echten Produktsuche – ohne gespeicherte Umschreibungen */
-    private function hits(string $term, SalesChannelContext $context): int
+    /** Trefferanzahl der echten Produktsuche – ohne gespeicherte Umschreibungen und gelerntes Ranking */
+    private function hits(string $term, SalesChannelContext $context, ?Criteria $criteria = null, bool $withRewrites = false): int
     {
         $request = new Request(['search' => $term, 'limit' => 1, 'p' => 1], ['no-aggregations' => true]);
-        $request->attributes->set(LearningProductSearchBuilder::SKIP_REWRITE, true);
+        $request->attributes->set(LearningProductSearchBuilder::SKIP_REWRITE, !$withRewrites);
+        $request->attributes->set(LearningProductSearchBuilder::SKIP_LEARNING, true);
 
         try {
-            return $this->productSearchRoute->load($request, $context, new Criteria())->getListingResult()->getTotal();
+            return $this->productSearchRoute->load($request, $context, $criteria ?? new Criteria())->getListingResult()->getTotal();
         } catch (\Throwable) {
             return 0;
         }

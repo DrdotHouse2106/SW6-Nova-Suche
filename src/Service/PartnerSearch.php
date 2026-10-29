@@ -3,6 +3,7 @@
 namespace Nova\Search\Service;
 
 use Doctrine\DBAL\Connection;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\SalesChannel\Search\AbstractProductSearchRoute;
@@ -22,6 +23,13 @@ class PartnerSearch
 {
     public const MAX_PARTNERS = 3;
 
+    /** Wie lange „nichts gefunden“ je Schwestershop und Begriff gemerkt wird */
+    private const EMPTY_TTL = 600;
+
+    private ?CacheItemPoolInterface $cache = null;
+
+    private ?TrafficLimiter $limiter = null;
+
     public function __construct(
         private readonly AbstractProductSearchRoute $productSearchRoute,
         private readonly AbstractSalesChannelContextFactory $contextFactory,
@@ -30,7 +38,20 @@ class PartnerSearch
     ) {
     }
 
+    public function setCache(CacheItemPoolInterface $cache): void
+    {
+        $this->cache = $cache;
+    }
+
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
+    }
+
     /**
+     * Leere Ergebnisse werden kurz gemerkt, und je Client-IP gibt es eine Obergrenze – Zufallsbegriffe
+     * lösen so nicht bei jedem Aufruf mehrere teure Schwestershop-Suchen aus.
+     *
      * @param list<string> $partnerIds Verkaufskanal-IDs (hex)
      *
      * @return list<array{name: string, url: string, searchUrl: string, total: int, products: ProductCollection}>
@@ -38,6 +59,10 @@ class PartnerSearch
     public function search(string $term, SalesChannelContext $current, array $partnerIds, int $limit = 4): array
     {
         $results = [];
+        if ($this->limiter !== null && !$this->limiter->allow(TrafficLimiter::PARTNER, $current->getSalesChannelId())) {
+            return $results;
+        }
+
         foreach (\array_slice(array_values(array_unique($partnerIds)), 0, self::MAX_PARTNERS) as $partnerId) {
             if ($partnerId === $current->getSalesChannelId() || !Uuid::isValid($partnerId)) {
                 continue;
@@ -46,6 +71,11 @@ class PartnerSearch
             try {
                 $domain = $this->domain($partnerId, $current->getLanguageId());
                 if ($domain === null) {
+                    continue;
+                }
+
+                $emptyKey = 'nova_search_partner_empty_' . hash('sha256', $partnerId . '|' . $domain['languageId'] . '|' . mb_strtolower($term));
+                if ($this->isCachedEmpty($emptyKey)) {
                     continue;
                 }
 
@@ -68,6 +98,7 @@ class PartnerSearch
 
                 $listing = $this->productSearchRoute->load($request, $context, $criteria)->getListingResult();
                 if ($listing->getTotal() === 0) {
+                    $this->rememberEmpty($emptyKey);
                     continue;
                 }
 
@@ -86,6 +117,31 @@ class PartnerSearch
         }
 
         return $results;
+    }
+
+    private function isCachedEmpty(string $key): bool
+    {
+        try {
+            return $this->cache?->getItem($key)->isHit() ?? false;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function rememberEmpty(string $key): void
+    {
+        if ($this->cache === null) {
+            return;
+        }
+
+        try {
+            $item = $this->cache->getItem($key);
+            $item->set(true);
+            $item->expiresAfter(self::EMPTY_TTL);
+            $this->cache->save($item);
+        } catch (\Throwable) {
+            // Cache ist nur eine Abkürzung
+        }
     }
 
     /**

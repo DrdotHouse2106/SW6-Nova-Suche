@@ -26,6 +26,9 @@ class SearchStatistics
     /** Gewichtung der Signale: Kauf > Warenkorb > Klick */
     private const WEIGHTS = ['clicks' => 1, 'carts' => 3, 'orders' => 5];
 
+    /** „Beliebt“ erst, wenn an so vielen verschiedenen Tagen gesucht */
+    public const POPULAR_MIN_DAYS = 3;
+
     public function __construct(private readonly Connection $connection)
     {
     }
@@ -127,7 +130,7 @@ class SearchStatistics
         $rows = $this->connection->fetchAllAssociative(
             "SELECT LOWER(HEX(`product_id`)) AS id, {$score} AS score
              FROM `nova_search_term_product`
-             WHERE `sales_channel_id` = :sc AND `term` = :term AND {$score} >= :min
+             WHERE `sales_channel_id` = :sc AND `term` = :term AND `verified` = 1 AND {$score} >= :min
              ORDER BY score DESC
              LIMIT " . max(1, min($limit, 50)),
             ['sc' => Uuid::fromHexToBytes($salesChannelId), 'term' => $term, 'min' => max(1, $minScore)]
@@ -142,7 +145,8 @@ class SearchStatistics
     }
 
     /**
-     * Häufigste Suchbegriffe mit Treffern, die in den letzten 90 Tagen gesucht wurden.
+     * Häufigste Suchbegriffe der letzten 90 Tage – nur mit serverseitig geprüften Treffern (verified_hits,
+     * nicht die Angabe aus dem Browser) und an mindestens POPULAR_MIN_DAYS verschiedenen Tagen gesucht.
      *
      * @param list<string> $blocklist
      *
@@ -152,14 +156,18 @@ class SearchStatistics
     {
         /** @var list<string> $terms */
         $terms = $this->connection->fetchFirstColumn(
-            'SELECT `term` FROM `nova_search_term`
-             WHERE `sales_channel_id` = :sc AND `last_hits` > 0 AND `searches` >= :min AND `updated_at` >= :since
-             ORDER BY `searches` DESC, `term` ASC
+            'SELECT t.`term` FROM `nova_search_term` t
+             WHERE t.`sales_channel_id` = :sc AND t.`verified_hits` > 0 AND t.`searches` >= :min AND t.`updated_at` >= :since
+               AND (SELECT COUNT(*) FROM `nova_search_term_day` d
+                    WHERE d.`sales_channel_id` = t.`sales_channel_id` AND d.`day` >= :sinceDay AND d.`term` = t.`term` AND d.`searches` > 0) >= :days
+             ORDER BY t.`searches` DESC, t.`term` ASC
              LIMIT 50',
             [
                 'sc' => Uuid::fromHexToBytes($salesChannelId),
                 'min' => max(1, $minSearches),
                 'since' => (new \DateTimeImmutable('-90 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT),
+                'sinceDay' => (new \DateTimeImmutable('-90 days'))->format('Y-m-d'),
+                'days' => self::POPULAR_MIN_DAYS,
             ]
         );
 
@@ -189,6 +197,71 @@ class SearchStatistics
         $beforeDay = (new \DateTimeImmutable('-730 days'))->format('Y-m-d');
         $this->connection->executeStatement('DELETE FROM `nova_search_term_day` WHERE `day` < :before', ['before' => $beforeDay]);
         $this->connection->executeStatement('DELETE FROM `nova_search_product_day` WHERE `day` < :before', ['before' => $beforeDay]);
+    }
+
+    /**
+     * Begriffe, deren Trefferzahl serverseitig (neu) geprüft werden soll: oft gesucht, noch nie oder
+     * seit einem Tag nicht geprüft.
+     *
+     * @return list<array{sc: string, term: string}>
+     */
+    public function termsToVerify(int $limit): array
+    {
+        /** @var list<array{sc: string, term: string}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term` FROM `nova_search_term`
+             WHERE `searches` >= 2 AND `updated_at` >= :since AND (`verified_at` IS NULL OR `verified_at` < :stale)
+             ORDER BY `searches` DESC LIMIT ' . max(1, $limit),
+            [
+                'since' => (new \DateTimeImmutable('-90 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT),
+                'stale' => (new \DateTimeImmutable('-1 day'))->format(Defaults::STORAGE_DATE_TIME_FORMAT),
+            ]
+        );
+
+        return $rows;
+    }
+
+    public function setVerifiedHits(string $salesChannelId, string $term, int $hits): void
+    {
+        $this->connection->executeStatement(
+            'UPDATE `nova_search_term` SET `verified_hits` = :hits, `verified_at` = :now WHERE `sales_channel_id` = :sc AND `term` = :term',
+            ['hits' => max(0, min($hits, 1_000_000)), 'now' => $this->now(), 'sc' => Uuid::fromHexToBytes($salesChannelId), 'term' => $term]
+        );
+    }
+
+    /**
+     * Begriff × Produkt-Paare, bei denen noch nicht (oder seit 30 Tagen nicht) geprüft wurde, ob die
+     * Suche das Produkt bei diesem Begriff überhaupt findet – stärkste Signale zuerst.
+     *
+     * @return list<array{sc: string, term: string, productId: string}>
+     */
+    public function productsToVerify(int $limit): array
+    {
+        /** @var list<array{sc: string, term: string, productId: string}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, LOWER(HEX(`product_id`)) AS productId
+             FROM `nova_search_term_product`
+             WHERE `verified_at` IS NULL OR `verified_at` < :stale
+             ORDER BY (`clicks` + 3 * `carts` + 5 * `orders`) DESC LIMIT ' . max(1, $limit),
+            ['stale' => (new \DateTimeImmutable('-30 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT)]
+        );
+
+        return $rows;
+    }
+
+    public function setProductVerified(string $salesChannelId, string $term, string $productId, bool $verified): void
+    {
+        $this->connection->executeStatement(
+            'UPDATE `nova_search_term_product` SET `verified` = :verified, `verified_at` = :now
+             WHERE `sales_channel_id` = :sc AND `term` = :term AND `product_id` = :product',
+            [
+                'verified' => $verified ? 1 : 0,
+                'now' => $this->now(),
+                'sc' => Uuid::fromHexToBytes($salesChannelId),
+                'term' => $term,
+                'product' => Uuid::fromHexToBytes($productId),
+            ]
+        );
     }
 
     /**

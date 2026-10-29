@@ -73,7 +73,7 @@
             <name>popularMinSearches</name>
             <label>Minimum number of searches</label>
             <label lang="de-DE">Mindestanzahl Suchen für „beliebt“</label>
-            <helpText lang="de-DE">Schützt davor, dass einzelne oder gezielt eingegebene Begriffe öffentlich angezeigt werden.</helpText>
+            <helpText lang="de-DE">Schützt davor, dass einzelne oder gezielt eingegebene Begriffe öffentlich angezeigt werden. Zusätzlich muss der Begriff an mindestens drei verschiedenen Tagen gesucht worden sein und bei der Prüfung im Hintergrund Treffer liefern.</helpText>
             <defaultValue>5</defaultValue>
             <min>1</min>
         </input-field>
@@ -247,7 +247,7 @@
             <name>learnCorrections</name>
             <label>Learn spelling corrections from visitors</label>
             <label lang="de-DE">Tippfehler aus dem Verhalten lernen</label>
-            <helpText lang="de-DE">Sucht ein Besucher z. B. „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche das. Ab der eingestellten Anzahl wird „vergser“ künftig automatisch als „vergaser“ gesucht (Hinweis „Ergebnisse für …“). Nur bei kleinen Abweichungen in der Schreibweise.</helpText>
+            <helpText lang="de-DE">Sucht ein Besucher z. B. „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche das. Ab der eingestellten Anzahl wird „vergser“ künftig automatisch als „vergaser“ gesucht (Hinweis „Ergebnisse für …“). Nur bei kleinen Abweichungen in der Schreibweise, nur wenn „vergser“ selbst nichts findet und „vergaser“ Treffer hat (Prüfung stündlich im Hintergrund). Gespeicherte Umschreibungen lassen sich unter Erweiterungen → Nova Suche → „Ohne Treffer“ deaktivieren.</helpText>
             <defaultValue>true</defaultValue>
         </input-field>
 
@@ -255,7 +255,7 @@
             <name>correctionMinCount</name>
             <label>Learn a correction after this many observations</label>
             <label lang="de-DE">Tippfehler übernehmen nach so vielen Beobachtungen</label>
-            <helpText lang="de-DE">Wie oft Besucher dieselbe Korrektur gemacht haben müssen. Standard 2.</helpText>
+            <helpText lang="de-DE">Wie viele verschiedene Besucher dieselbe Korrektur gemacht haben müssen (je Besucher und Tag zählt sie einmal, außerdem an mindestens zwei verschiedenen Tagen). Standard und Minimum 2.</helpText>
             <defaultValue>2</defaultValue>
         </input-field>
 
@@ -263,7 +263,7 @@
             <name>boostMinScore</name>
             <label>Minimum learning score for ranking boost</label>
             <label lang="de-DE">Mindest-Lernwert für bessere Platzierung</label>
-            <helpText lang="de-DE">Klick = 1, Warenkorb = 3, Kauf = 5 Punkte je Begriff und Produkt. Erst ab diesem Wert rückt ein Produkt bei diesem Begriff nach oben – so verzerren Einzelklicks nichts.</helpText>
+            <helpText lang="de-DE">Klick = 1, Warenkorb = 3, Kauf = 5 Punkte je Begriff und Produkt. Erst ab diesem Wert rückt ein Produkt bei diesem Begriff nach oben – so verzerren Einzelklicks nichts. Je Besucher und Tag zählt ein Signal einmal, und berücksichtigt werden nur Produkte, die die Suche bei dem Begriff auch ohne Lernen findet (Prüfung stündlich im Hintergrund).</helpText>
             <defaultValue>3</defaultValue>
             <min>1</min>
         </input-field>

@@ -1,3 +1,16 @@
+# 1.12.0
+- Security: learned spelling corrections hardened – counted once per visitor (session and IP) and day, applied only after observations on at least two different days and an hourly check that the term itself has no results while the correction has. Previously a single forged request was enough
+- Existing learned corrections are re-checked once after the update (inactive until then) and disabled if they fail; learned corrections are now part of the 30-day re-check
+- New in analytics ("Zero results"): list of all stored rewrites (Claude and learned) with a "Disable" button
+- Security: storefront learning signals require an existing shop session, same origin and no bot; additional limits per client IP and per sales channel (Symfony RateLimiter), also for the Store API
+- Security: popular searches use a server-side verified hit count instead of the browser value and require searches on at least three different days
+- Security: learned ranking and "popular in search" only consider products the search finds for that term without learning; clicks and add-to-cart count once per IP, term and product per day
+- Claude queue: new terms limited per IP, bots excluded, frequently searched terms first; instant evaluation on the search page at most three times per IP and hour
+- Sister shop search: "nothing found" is cached for 10 minutes, calls limited per IP
+- Administration: API routes require the "read settings" or "edit settings" privilege
+- Cleanup: observed corrections and never resolved terms are deleted after 180 days; uninstall also removes the corrections table
+- README: privacy notes clarified
+
 # 1.11.0
 - New: learns spelling corrections from visitor behaviour (misspelling without click → similar term with click)
 - Analytics: typing steps are no longer counted as separate searches

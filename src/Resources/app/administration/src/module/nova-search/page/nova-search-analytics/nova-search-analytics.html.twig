@@ -151,6 +151,41 @@
                                 </tr>
                             </tbody>
                         </table>
+
+                        <h3 class="nova-search-analytics__subtitle">{{ $tc('nova-search.analytics.rewrites.title') }}</h3>
+                        <p class="nova-search-analytics__hint">{{ $tc('nova-search.analytics.rewrites.hint') }}</p>
+                        <table class="nova-search-analytics__table">
+                            <thead>
+                                <tr>
+                                    <th>{{ $tc('nova-search.analytics.col.term') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.rewrites.rewrite') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.rewrites.source') }}</th>
+                                    <th>{{ $tc('nova-search.analytics.rewrites.status') }}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="row in (data.rewrites || [])" :key="`${row.salesChannelId}-${row.term}`">
+                                    <td>{{ row.term }}</td>
+                                    <td>{{ row.rewrite || '–' }}</td>
+                                    <td>{{ $tc(`nova-search.analytics.rewrites.sources.${row.source}`) }}</td>
+                                    <td>{{ $tc(`nova-search.analytics.rewriteStatus.${row.status}`) }}</td>
+                                    <td class="nova-search-analytics__fix">
+                                        <mt-button
+                                            v-if="row.status !== 'disabled'"
+                                            size="small"
+                                            variant="secondary"
+                                            @click="disableRewrite(row)"
+                                        >
+                                            {{ $tc('nova-search.analytics.rewrites.disable') }}
+                                        </mt-button>
+                                    </td>
+                                </tr>
+                                <tr v-if="!data.rewrites || data.rewrites.length === 0">
+                                    <td colspan="5" class="nova-search-analytics__empty">{{ $tc('nova-search.analytics.rewrites.empty') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </template>
 
                     <table v-else class="nova-search-analytics__table">

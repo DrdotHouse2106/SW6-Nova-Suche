@@ -5,6 +5,7 @@ namespace Nova\Search\StoreApi;
 use Nova\Search\Rules\SearchRules;
 use Nova\Search\Search\LearningProductSearchBuilder;
 use Nova\Search\Service\RewriteStore;
+use Nova\Search\Service\TrafficLimiter;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Product\SalesChannel\Listing\ProductListingResult;
 use Shopware\Core\Content\Product\SalesChannel\Search\AbstractProductSearchRoute;
@@ -40,6 +41,8 @@ class NovaSearchRoute extends AbstractNovaSearchRoute
     public const MAX_LIMIT = 48;
     private const MAX_PAGE = 100;
 
+    private ?TrafficLimiter $limiter = null;
+
     public function __construct(
         private readonly AbstractProductSearchRoute $productSearchRoute,
         private readonly RewriteStore $rewrites,
@@ -47,6 +50,11 @@ class NovaSearchRoute extends AbstractNovaSearchRoute
         private readonly SystemConfigService $config,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
     }
 
     public function getDecorated(): AbstractNovaSearchRoute
@@ -149,7 +157,7 @@ class NovaSearchRoute extends AbstractNovaSearchRoute
         }
     }
 
-    /** Begriff ohne Treffer für die Claude-Umschreibung vormerken – zählt die Suche nicht */
+    /** Neuen Begriff ohne Treffer für die Claude-Umschreibung vormerken (mit Mengenbegrenzung) – zählt die Suche nicht */
     private function markPending(string $salesChannelId, string $term): void
     {
         if ($this->config->get('NovaSearch.config.learningActive', $salesChannelId) === false) {
@@ -157,7 +165,7 @@ class NovaSearchRoute extends AbstractNovaSearchRoute
         }
 
         try {
-            $this->rewrites->markPending($salesChannelId, $term);
+            $this->rewrites->queue($salesChannelId, $term, $this->limiter);
         } catch (\Throwable $e) {
             $this->logger->warning('Nova Suche (Store-API): Begriff konnte nicht vorgemerkt werden', ['exception' => $e]);
         }

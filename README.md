@@ -51,11 +51,11 @@ Die Suche **lernt dabei mit**: Was Kunden suchen, anklicken, in den Warenkorb le
 | In den Warenkorb nach einer Suche | überall im Shop | +3 Punkte |
 | Kauf nach einer Suche | beim Bestellabschluss | +5 Punkte |
 
-**Bessere Platzierung:** Erreicht ein Produkt bei einem Suchbegriff den eingestellten Mindest-Lernwert (Standard 3 Punkte), rückt es bei genau diesem Begriff in der Sortierung „Relevanz“ nach oben – im Suchfenster und auf der Suchergebnisseite. Die Trefferliste selbst bleibt unverändert (es tauchen keine unpassenden Produkte auf), Einzelklicks verzerren nichts. Die Stärke wächst logarithmisch und ist auf das Doppelte der besten Shopware-Bewertung begrenzt.
+**Bessere Platzierung:** Erreicht ein Produkt bei einem Suchbegriff den eingestellten Mindest-Lernwert (Standard 3 Punkte), rückt es bei genau diesem Begriff in der Sortierung „Relevanz“ nach oben – im Suchfenster und auf der Suchergebnisseite. Die Trefferliste selbst bleibt unverändert (es tauchen keine unpassenden Produkte auf), Einzelklicks verzerren nichts. Seit 1.12.0 zählt jedes Signal je Besucher (IP), Begriff und Produkt höchstens einmal am Tag, und ein Produkt rückt erst nach oben, wenn die stündliche Prüfung bestätigt hat, dass die Suche es bei diesem Begriff auch ohne Lernen findet – erfundene Klicks auf fremde Produkte bleiben so wirkungslos. Die Stärke wächst logarithmisch und ist auf das Doppelte der besten Shopware-Bewertung begrenzt.
 
-**Tippfehler lernen (1.11.0):** Die Suche erkennt Korrekturen selbst – ohne dass jede falsche Schreibweise von Hand hinterlegt werden muss. Als Korrektur gilt nur eine kleine Abweichung in der Schreibweise mit denselben Zahlen („spiegel t2“ → „spiegel t3“ ist ein anderes Teil, „bremse“ → „auspuff“ ein neuer Gedanke). Gelernte Korrekturen erscheinen in der Auswertung als Umschreibung und werden bei der 30-Tage-Prüfung nicht entfernt. Einstellungen: *Tippfehler aus dem Verhalten lernen*, *Tippfehler übernehmen nach so vielen Beobachtungen*. Ergänzt Claude, das nur Begriffe **ohne** Treffer auswertet – ein Tippfehler wie „vergser“ findet oft irgendetwas Unpassendes.
+**Tippfehler lernen (1.11.0):** Die Suche erkennt Korrekturen selbst – ohne dass jede falsche Schreibweise von Hand hinterlegt werden muss. Als Korrektur gilt nur eine kleine Abweichung in der Schreibweise mit denselben Zahlen („spiegel t2“ → „spiegel t3“ ist ein anderes Teil, „bremse“ → „auspuff“ ein neuer Gedanke). Seit 1.12.0 zählt eine Korrektur je Besucher und Tag nur einmal und wird erst übernommen, wenn sie oft genug **an mindestens zwei verschiedenen Tagen** beobachtet wurde **und** die stündliche Prüfung zeigt, dass der Begriff selbst keine Treffer hat, die Korrektur aber schon. Gelernte Korrekturen stehen unter *Auswertung → Ohne Treffer → Gespeicherte Umschreibungen*, lassen sich dort deaktivieren und werden wie Claude-Umschreibungen alle 30 Tage nachgeprüft (entfernt, sobald der Begriff selbst etwas findet oder die Korrektur nichts mehr). Einstellungen: *Tippfehler aus dem Verhalten lernen*, *Tippfehler übernehmen nach so vielen Beobachtungen*. Ergänzt Claude, das nur Begriffe **ohne** Treffer auswertet – ein Tippfehler wie „vergser“ findet oft irgendetwas Unpassendes.
 
-**Beliebte Suchanfragen:** die häufigsten Begriffe mit Treffern aus den letzten 90 Tagen, ab einer Mindestanzahl Suchen (Standard 5). Eine **Sperrliste** verhindert, dass unerwünschte Begriffe öffentlich angezeigt werden. Von Hand gepflegte Begriffe stehen immer vorne.
+**Beliebte Suchanfragen:** die häufigsten Begriffe mit Treffern aus den letzten 90 Tagen, ab einer Mindestanzahl Suchen (Standard 5) und an mindestens drei verschiedenen Tagen gesucht. Die Trefferzahl prüft der Shop selbst (stündlich im Hintergrund), nicht der Browser – neue Begriffe erscheinen daher mit bis zu einer Stunde Verzögerung. Eine **Sperrliste** verhindert, dass unerwünschte Begriffe öffentlich angezeigt werden. Von Hand gepflegte Begriffe stehen immer vorne.
 
 ## Claude: Suchbegriffe ohne Treffer dauerhaft verbessern
 
@@ -67,7 +67,7 @@ Die Suche **lernt dabei mit**: Was Kunden suchen, anklicken, in den Warenkorb le
 
 **Nachhaltig:** Jeder Begriff wird nur **einmal** an Claude geschickt – nicht bei jeder Suche. Die Verbesserung bleibt dauerhaft in der Datenbank und wirkt ohne weitere Anfragen.
 
-**Optional sofort:** Mit „Neue Begriffe auf der Suchergebnisseite sofort auswerten“ bekommt der erste Kunde mit einem neuen Begriff direkt passende Treffer (Wartezeit beim ersten Mal bis zu 4 Sekunden).
+**Optional sofort:** Mit „Neue Begriffe auf der Suchergebnisseite sofort auswerten“ bekommt der erste Kunde mit einem neuen Begriff direkt passende Treffer (Wartezeit beim ersten Mal bis zu 4 Sekunden). Zum Schutz vor Missbrauch gilt das nicht für Bots und höchstens dreimal je IP und Stunde (30 je Verkaufskanal); sonst wird der Begriff wie üblich im Hintergrund ausgewertet. Neue Begriffe ohne Treffer kommen je IP höchstens 30-mal pro Stunde in die Warteschlange, häufig gesuchte Begriffe werden zuerst ausgewertet.
 
 **Kosten (Schätzung):** Claude Haiku 5.5 kostet 0,10 $ je 1 Mio. Eingabe- und 0,50 $ je 1 Mio. Ausgabe-Tokens. Eine gebündelte Anfrage mit 30 Begriffen braucht grob 1.500 Eingabe- und 1.000 Ausgabe-Tokens – also deutlich unter 0,1 Cent. **1.000 neue Begriffe ohne Treffer kosten damit rund 2–3 Cent.**
 
@@ -147,7 +147,7 @@ POST /store-api/nova-search/track
 ] }
 ```
 
-Antwort immer `204`. Es gelten dieselben Regeln wie im Suchfenster: max. 20 Ereignisse pro Aufruf und **300 pro Kontext-Token und Stunde**, nur existierende Produkte, Begriffe werden normalisiert, E-Mail-Adressen und Telefonnummern verworfen. Gespeichert werden nur Begriff, Produkt-ID und Zähler – kein Token, keine Kunden- oder Bestelldaten.
+Antwort immer `204`. Es gelten dieselben Regeln wie im Suchfenster: max. 20 Ereignisse pro Aufruf, **300 pro Kontext-Token und Stunde**, dazu 600 je Client-IP und Stunde und eine Obergrenze je Verkaufskanal, Klicks und Warenkorb je IP, Begriff und Produkt einmal am Tag, nur existierende Produkte, Begriffe werden normalisiert, E-Mail-Adressen und Telefonnummern verworfen. Gespeichert werden nur Begriff, Produkt-ID und Zähler – kein Token, keine Kunden- oder Bestelldaten.
 
 `purchase` zählt nur, wenn der angemeldete Kunde (auch Gast) dieses Produkt in den **letzten 48 Stunden wirklich bestellt** hat, und je Kontext-Token und Produkt nur einmal. So lassen sich keine Käufe erfinden.
 
@@ -163,13 +163,15 @@ Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und
 - **Kennzahlen** mit Veränderung zum Vorzeitraum: Suchen, Anteil ohne Treffer, Klickrate, in den Warenkorb, Käufe nach einer Suche, verschiedene Begriffe
 - **Suchen pro Tag** als Balken (orange: ohne Treffer)
 - **Suchbegriffe** mit Suchen, Klicks, Klickrate, Warenkorb, Käufen – ⚠ markiert Begriffe, die oft gesucht, aber nie angeklickt wurden (Treffer passen nicht)
-- **Ohne Treffer** mit Stand der Claude-Umschreibung und Knöpfen „Synonym“/„Weiterleitung“ zum direkten Beheben
+- **Ohne Treffer** mit Stand der Claude-Umschreibung und Knöpfen „Synonym“/„Weiterleitung“ zum direkten Beheben; darunter alle **gespeicherten Umschreibungen** (von Claude oder gelernt) mit Knopf „Deaktivieren“
 - **Geklickte Produkte** (Link zum Produkt in der Administration)
 - **Claude-Kosten** des laufenden Monats im Verhältnis zum Limit
 - **CSV-Export** je Tabelle (Excel-tauglich, gleiche Daten wie `nova-search:export`)
 - Knopf **„Einstellungen“** führt direkt zur Plugin-Konfiguration
 
-Tageswerte werden ab Version 1.6.0 gezählt; frühere Zeiträume sind leer (Gesamtzahlen gibt es weiter im CSV-Export). Gespeichert werden nur Begriffe und Zähler, keine personenbezogenen Daten; Tageswerte werden nach 2 Jahren gelöscht.
+Tageswerte werden ab Version 1.6.0 gezählt; frühere Zeiträume sind leer (Gesamtzahlen gibt es weiter im CSV-Export). Gespeichert werden nur Begriffe und Zähler (zum Personenbezug von Suchbegriffen siehe *Datenschutz*); Tageswerte werden nach 2 Jahren gelöscht.
+
+**Berechtigungen (1.12.0):** Auswertung, Export sowie Synonyme/Weiterleitungen/Hinweise ansehen braucht die Berechtigung *Einstellungen lesen* (`system_config:read`), Anlegen, Ändern, Importieren und Deaktivieren *Einstellungen bearbeiten* (`system_config:update`) – dieselben Rechte wie für die Plugin-Konfiguration. Administratoren haben sie immer.
 
 ## Suchdaten aus einem bisherigen Suchdienst übernehmen
 
@@ -295,13 +297,14 @@ Die Dateien sind UTF-8 mit BOM (Umlaute in Excel korrekt). Suchbegriffe, die Exc
 
 ## Datenschutz
 
-- **Keine personenbezogenen Daten:** gespeichert werden nur Suchbegriffe, Produkt-IDs und Zähler – keine IP-Adressen, Kunden-, Bestell- oder Sitzungs-IDs. Begriffe, die wie E-Mail-Adressen oder Telefonnummern aussehen, werden nie gespeichert.
-- **An Anthropic (Claude) gehen nur** Suchbegriffe ohne Treffer sowie Shop-, Kategorie- und Markennamen – keine Kundendaten. Claude ist standardmäßig ausgeschaltet.
+- **Datenbank:** gespeichert werden Suchbegriffe, Produkt-IDs und Zähler – keine IP-Adressen, Kunden-, Bestell- oder Sitzungs-IDs. Begriffe, die wie E-Mail-Adressen, Telefonnummern oder Links aussehen, werden nie gespeichert. Suchbegriffe sind aber freie Eingaben: Tippt jemand einen Namen, eine Anschrift oder eine Kundennummer ins Suchfeld, wird dieser Text wie jeder andere Begriff gespeichert (bis 1 Jahr, Tageswerte 2 Jahre) und kann – wenn er keine Treffer hat und Claude aktiv ist – an Anthropic gehen. Das gehört in die Datenschutzerklärung (und bei aktivem Claude in den Auftragsverarbeitungsvertrag mit Anthropic).
+- **IP-Adressen nur flüchtig:** Zur Missbrauchsabwehr werden Ereignisse, Klicks und Korrekturen je Client-IP begrenzt bzw. entdoppelt. Dafür liegt höchstens 24 Stunden ein Hash der IP im Shopware-Objekt-Cache, nie in der Datenbank (berechtigtes Interesse). Dasselbe gilt für die Teileanfrage (1 Stunde).
+- **An Anthropic (Claude) gehen nur** Suchbegriffe ohne Treffer sowie Shop-, Kategorie- und Markennamen – keine Kunden- oder Bestelldaten (zu frei eingetippten Texten siehe oben). Claude ist standardmäßig ausgeschaltet.
 - **Cookies/Speicher im Browser nur mit Zustimmung** (Shopware-Cookie-Banner):
   - *Statistik* → „Suche: Käufe Suchbegriffen zuordnen“: Cookie `nova-search-attr` merkt sich bis zu 2 Tage, welches Produkt über welchen Begriff gefunden wurde; wird nach der Bestellung gelöscht. Ohne Zustimmung werden nur anonyme Suchen und Klicks gezählt.
   - *Komfortfunktionen* → „Zuletzt angesehene Produkte merken“: Liste im localStorage (`nova-recently-viewed`), verlässt nie den Browser. Die Zustimmungspflicht ist abschaltbar.
-- **Missbrauchsschutz:** max. 20 Ereignisse pro Aufruf und 300 pro Sitzung und Stunde, nur existierende Produkte, Mindestanzahl und Sperrliste für öffentlich angezeigte Begriffe.
-- Einträge, die ein Jahr lang nicht vorkamen, werden automatisch gelöscht. Beim Deinstallieren ohne „Daten behalten“ werden alle Tabellen entfernt.
+- **Missbrauchsschutz:** Signale aus dem Suchfenster nur mit bestehender Shop-Sitzung von derselben Website und ohne Bots; max. 20 Ereignisse pro Aufruf, 300 pro Sitzung und Stunde, 600 je IP und Stunde und eine Obergrenze je Verkaufskanal; Klicks, Warenkorb und Korrekturen je IP und Tag einmal; nur existierende Produkte; öffentlich wirksam (beliebte Begriffe, Ranking, Highlights, gelernte Korrekturen) wird nur, was die stündliche Prüfung gegen die echte Suche bestätigt. Neue Begriffe für Claude und Schwestershop-Suchen sind je IP begrenzt.
+- Einträge, die ein Jahr lang nicht vorkamen, werden automatisch gelöscht; beobachtete Korrekturen und nie gelöste Begriffe nach 180 Tagen. Beim Deinstallieren ohne „Daten behalten“ werden alle Tabellen entfernt.
 
 ## Installation
 
@@ -554,12 +557,12 @@ Hier sammeln wir Hürden, die bei Installation und Betrieb tatsächlich aufgetre
 
 ### Beliebte Suchanfragen sind leer
 
-**Ursache:** Automatische Liste braucht erst echte Suchen (Mindestanzahl, letzte 90 Tage)  
+**Ursache:** Automatische Liste braucht erst echte Suchen (Mindestanzahl, an drei verschiedenen Tagen, letzte 90 Tage) und die stündliche Trefferprüfung  
 **Lösung:** Anfangs Begriffe in der Konfiguration von Hand eintragen
 
 ### Ranking ändert sich nicht
 
-**Ursache:** Boost greift erst ab einem Schwellenwert (Klicks/Käufe) und nur bei Sortierung „Relevanz“  
+**Ursache:** Boost greift erst ab einem Schwellenwert (Klicks/Käufe), erst nach der stündlichen Prüfung und nur bei Sortierung „Relevanz“  
 **Lösung:** Gewollt, damit Einzelklicks nichts verzerren
 
 ### „Zuletzt angesehen“ fehlt im Suchfenster

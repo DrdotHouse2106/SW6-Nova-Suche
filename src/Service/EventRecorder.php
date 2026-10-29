@@ -15,6 +15,8 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *              tatsächlich kürzlich bestellt hat (Schutz vor erfundenen Käufen)
  *
  * Gespeichert werden nur Begriff, Produkt-ID und Zähler – keine Kunden-, Sitzungs- oder Bestelldaten.
+ * Klicks, Warenkorb und Korrekturen zählen je Client-IP, Begriff und Produkt bzw. Korrektur höchstens
+ * einmal am Tag (nur ein Hash im Cache, 24 Stunden).
  */
 class EventRecorder
 {
@@ -24,11 +26,12 @@ class EventRecorder
     /** Begriff ohne Klick, direkt danach ein ähnlicher Begriff mit Klick (vermutlich eine Korrektur) */
     public const TYPE_REFINE = 'refine';
 
-    /** Ab so vielen Beobachtungen wird eine Korrektur übernommen (Standard) */
-    private const DEFAULT_CORRECTION_MIN_COUNT = 2;
+    private const SIGNAL_DEDUP_SECONDS = 86400;
 
     /** Wie lange nach einer Bestellung ein Kauf noch gemeldet werden darf */
     private const PURCHASE_WINDOW_HOURS = 48;
+
+    private ?TrafficLimiter $limiter = null;
 
     public function __construct(
         private readonly SearchStatistics $statistics,
@@ -36,6 +39,11 @@ class EventRecorder
         private readonly LoggerInterface $logger,
         private readonly ?SystemConfigService $config = null,
     ) {
+    }
+
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
     }
 
     /**
@@ -86,20 +94,24 @@ class EventRecorder
         return $previous[\count($y)];
     }
 
+    /** Korrektur nur beobachten – übernommen wird sie erst nach der Trefferprüfung im Hintergrund */
     private function learnCorrection(string $salesChannelId, string $term, string $target): bool
     {
         if (!self::isLikelyCorrection($term, $target)
-            || $this->config?->get('NovaSearch.config.learnCorrections', $salesChannelId) === false) {
+            || $this->config?->get('NovaSearch.config.learnCorrections', $salesChannelId) === false
+            || !$this->firstToday('refine', $salesChannelId . '|' . TermNormalizer::normalize($term) . '|' . TermNormalizer::normalize($target))) {
             return false;
         }
 
-        $count = $this->rewrites->recordRefinement($salesChannelId, $term, $target);
-        $min = $this->config?->getInt('NovaSearch.config.correctionMinCount', $salesChannelId) ?: self::DEFAULT_CORRECTION_MIN_COUNT;
-        if ($count >= max(1, $min)) {
-            $this->rewrites->saveLearned($salesChannelId, $term, $target);
-        }
+        $this->rewrites->recordRefinement($salesChannelId, $term, $target);
 
         return true;
+    }
+
+    /** Ohne Begrenzer (z. B. während eines Updates) zählen Lernsignale nicht */
+    private function firstToday(string $scope, string $key): bool
+    {
+        return $this->limiter !== null && $this->limiter->once($scope, $key, self::SIGNAL_DEDUP_SECONDS);
     }
 
     /**
@@ -167,7 +179,7 @@ class EventRecorder
                     $hits = \is_numeric($hits) ? (int) $hits : 0;
                     $this->statistics->recordSearch($salesChannelId, $term, $hits);
                     if ($hits === 0 && empty($event['rewritten'])) {
-                        $this->rewrites->markPending($salesChannelId, $term);
+                        $this->rewrites->queue($salesChannelId, $term, $this->limiter);
                     }
                     ++$saved;
                     continue;
@@ -185,10 +197,18 @@ class EventRecorder
                     default => null,
                 };
 
-                if ($statisticType !== null) {
-                    $this->statistics->recordProduct($salesChannelId, $term, $productId, $statisticType);
-                    ++$saved;
+                if ($statisticType === null) {
+                    continue;
                 }
+
+                // Käufe sind bereits gegen die Bestellung geprüft und je Kontext entdoppelt
+                if ($statisticType !== SearchStatistics::TYPE_ORDER
+                    && !$this->firstToday($statisticType, $salesChannelId . '|' . TermNormalizer::normalize($term) . '|' . $productId)) {
+                    continue;
+                }
+
+                $this->statistics->recordProduct($salesChannelId, $term, $productId, $statisticType);
+                ++$saved;
             }
         } catch (\Throwable $e) {
             // Erfassung ist optional – Fehler nie an Besucher oder App weitergeben

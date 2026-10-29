@@ -44,14 +44,31 @@
                 "pending": "wartet auf Auswertung",
                 "none": "keine Umschreibung gefunden",
                 "error": "fehlgeschlagen",
-                "done": "umgeschrieben"
+                "done": "umgeschrieben",
+                "review": "wird geprüft",
+                "disabled": "deaktiviert"
             },
             "empty": "Keine Daten im gewählten Zeitraum.",
             "emptyZero": "Keine Suchen ohne Treffer – sehr gut!",
             "claudeTitle": "Claude-Kosten diesen Monat",
             "claudeSpent": "{spent} $ von {limit} $ verbraucht ({month})",
             "fixSynonym": "Synonym",
-            "fixRedirect": "Weiterleitung"
+            "fixRedirect": "Weiterleitung",
+            "rewrites": {
+                "title": "Gespeicherte Umschreibungen",
+                "hint": "Diese Begriffe werden automatisch mit einem anderen Begriff gesucht – von Claude gefunden oder aus Korrekturen der Besucher gelernt. Deaktivieren schaltet eine Umschreibung dauerhaft ab; der Begriff wird danach weder neu gelernt noch an Claude gegeben.",
+                "rewrite": "Wird gesucht als",
+                "source": "Herkunft",
+                "status": "Status",
+                "sources": {
+                    "learned": "gelernt",
+                    "claude": "Claude"
+                },
+                "disable": "Deaktivieren",
+                "disabled": "Umschreibung deaktiviert.",
+                "error": "Die Umschreibung konnte nicht deaktiviert werden.",
+                "empty": "Keine gespeicherten Umschreibungen."
+            }
         },
         "tabs": {
             "analytics": "Auswertung",

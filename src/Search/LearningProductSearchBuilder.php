@@ -34,8 +34,8 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * 3. Lernen: Produkte, die bei genau diesem Begriff oft geklickt, in den Warenkorb gelegt oder
  *    gekauft wurden, bekommen zusätzliche Relevanz-Punkte. Das wirkt nur auf die Sortierung
- *    nach Relevanz – die Trefferliste selbst bleibt unverändert, weil Shopwares Suchwort-Filter
- *    weiterhin gelten.
+ *    nach Relevanz. Berücksichtigt werden nur Produkte, die der Hintergrund-Lauf bei diesem Begriff
+ *    auch ohne Boost gefunden hat – so kommt kein fremdes Produkt in die Trefferliste.
  */
 class LearningProductSearchBuilder implements ProductSearchBuilderInterface
 {
@@ -44,6 +44,8 @@ class LearningProductSearchBuilder implements ProductSearchBuilderInterface
     public const NUMBER_EXTENSION = 'novaSearchNumber';
     /** Request-Attribut, um Umschreibungen gezielt zu umgehen (z. B. beim erneuten Prüfen) */
     public const SKIP_REWRITE = 'nova-search-skip-rewrite';
+    /** Request-Attribut, um das gelernte Ranking zu umgehen (Prüfungen im Hintergrund) */
+    public const SKIP_LEARNING = 'nova-search-skip-learning';
 
     public function __construct(
         private readonly ProductSearchBuilderInterface $decorated,
@@ -98,7 +100,9 @@ class LearningProductSearchBuilder implements ProductSearchBuilderInterface
         }
 
         $this->addExclusions($criteria, $salesChannelId);
-        $this->addLearnedBoost($original, $criteria, $context);
+        if (!$request->attributes->getBoolean(self::SKIP_LEARNING)) {
+            $this->addLearnedBoost($original, $criteria, $context);
+        }
     }
 
     /** Request-Parameter der Checkbox „Nur exakte Teilenummer“ */

@@ -4,6 +4,7 @@ namespace Nova\Search\StoreApi;
 
 use Nova\Search\Service\EventRecorder;
 use Nova\Search\Service\RequestBudget;
+use Nova\Search\Service\TrafficLimiter;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Routing\StoreApiRouteScope;
 use Shopware\Core\PlatformRequest;
@@ -20,7 +21,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *                      "total"?: 12, "quantity"?: 1 }] }
  *
  * Gleiche Regeln wie im Suchfenster: max. 20 Ereignisse pro Aufruf, max. 300 pro Kontext-Token und
- * Stunde, nur existierende Produkte, Begriffe normalisiert, nichts Personenbezogenes gespeichert.
+ * Stunde, dazu Grenzen je Client-IP und je Verkaufskanal, nur existierende Produkte, Begriffe normalisiert,
+ * nichts Personenbezogenes in der Datenbank.
  * Käufe zählen nur, wenn der Kunde dieses Produkt in den letzten 48 Stunden wirklich bestellt hat,
  * und je Kontext-Token und Produkt nur einmal. Antwortet immer mit 204 – auch wenn nichts gezählt wurde.
  */
@@ -30,11 +32,18 @@ class NovaTrackRoute extends AbstractNovaTrackRoute
     public const MAX_EVENTS_PER_HOUR = 300;
     private const PURCHASE_DEDUP_SECONDS = 172800;
 
+    private ?TrafficLimiter $limiter = null;
+
     public function __construct(
         private readonly EventRecorder $recorder,
         private readonly RequestBudget $budget,
         private readonly SystemConfigService $config,
     ) {
+    }
+
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
     }
 
     public function getDecorated(): AbstractNovaTrackRoute
@@ -57,6 +66,10 @@ class NovaTrackRoute extends AbstractNovaTrackRoute
 
         $token = $context->getToken();
         $events = EventRecorder::parse($request->request->all()['events'] ?? null);
+        if ($events === [] || $this->limiter === null
+            || !$this->limiter->allow(TrafficLimiter::TRACK, $salesChannelId, \count($events), $request)) {
+            return new NoContentResponse();
+        }
 
         $accepted = [];
         foreach ($events as $event) {

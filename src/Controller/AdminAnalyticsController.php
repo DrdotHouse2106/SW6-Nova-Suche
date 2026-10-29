@@ -4,6 +4,7 @@ namespace Nova\Search\Controller;
 
 use Nova\Search\Rewrite\ClaudeBudget;
 use Nova\Search\Service\SearchAnalytics;
+use Nova\Search\Service\RewriteStore;
 use Nova\Search\Service\SearchExport;
 use Nova\Search\Service\StatsImport;
 use Psr\Log\LoggerInterface;
@@ -15,12 +16,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Admin-API für den Bereich „Erweiterungen → Nova Suche“: Auswertung und CSV-Export.
- * Nur für angemeldete Benutzer der Administration (keine Integrationen).
+ * Admin-API für den Bereich „Erweiterungen → Nova Suche“: Auswertung, CSV-Export und gespeicherte Umschreibungen.
+ * Nur für angemeldete Benutzer der Administration (keine Integrationen) mit Berechtigung für die
+ * Einstellungen (Lesen: system_config:read, Ändern: system_config:update).
  */
 #[Route(defaults: ['_routeScope' => ['api']])]
 class AdminAnalyticsController
 {
+    private ?RewriteStore $rewrites = null;
+
     public function __construct(
         private readonly SearchAnalytics $analytics,
         private readonly SearchExport $export,
@@ -30,7 +34,12 @@ class AdminAnalyticsController
     ) {
     }
 
-    #[Route(path: '/api/_action/nova-search/analytics', name: 'api.action.nova_search.analytics', methods: ['GET'])]
+    public function setRewriteStore(RewriteStore $rewrites): void
+    {
+        $this->rewrites = $rewrites;
+    }
+
+    #[Route(path: '/api/_action/nova-search/analytics', name: 'api.action.nova_search.analytics', defaults: ['_acl' => ['system_config:read']], methods: ['GET'])]
     public function analytics(Request $request, Context $context): JsonResponse
     {
         if (!$this->isAdminUser($context)) {
@@ -44,6 +53,7 @@ class AdminAnalyticsController
                 'spentUsd' => round($this->budget->spentMicro() / 1_000_000, 4),
                 'limitUsd' => round($this->budget->limitMicro() / 1_000_000, 2),
             ];
+            $data['rewrites'] = $this->rewrites?->listRewrites($this->salesChannelId($request)) ?? [];
 
             return new JsonResponse($data);
         } catch (\Throwable $e) {
@@ -53,7 +63,7 @@ class AdminAnalyticsController
         }
     }
 
-    #[Route(path: '/api/_action/nova-search/export', name: 'api.action.nova_search.export', methods: ['GET'])]
+    #[Route(path: '/api/_action/nova-search/export', name: 'api.action.nova_search.export', defaults: ['_acl' => ['system_config:read']], methods: ['GET'])]
     public function export(Request $request, Context $context): Response
     {
         if (!$this->isAdminUser($context)) {
@@ -80,7 +90,7 @@ class AdminAnalyticsController
      * Statistik-Dateien eines bisherigen Suchdienstes übernehmen.
      * Body: { salesChannelId, files: [{ name, text }] }
      */
-    #[Route(path: '/api/_action/nova-search/import-stats', name: 'api.action.nova_search.import_stats', methods: ['POST'])]
+    #[Route(path: '/api/_action/nova-search/import-stats', name: 'api.action.nova_search.import_stats', defaults: ['_acl' => ['system_config:update']], methods: ['POST'])]
     public function importStats(Request $request, Context $context): JsonResponse
     {
         if (!$this->isAdminUser($context)) {
@@ -112,6 +122,31 @@ class AdminAnalyticsController
         }
 
         return new JsonResponse(['results' => $results]);
+    }
+
+    /** Gespeicherte Umschreibung abschalten (wird danach weder angewendet noch neu gelernt) */
+    #[Route(path: '/api/_action/nova-search/rewrite/disable', name: 'api.action.nova_search.rewrite.disable', defaults: ['_acl' => ['system_config:update']], methods: ['POST'])]
+    public function disableRewrite(Request $request, Context $context): JsonResponse
+    {
+        if (!$this->isAdminUser($context)) {
+            return new JsonResponse(['message' => 'Nur für Benutzer der Administration.'], 403);
+        }
+
+        $salesChannelId = $request->request->getString('salesChannelId');
+        $term = $request->request->getString('term');
+        if (preg_match('/^[0-9a-f]{32}$/', $salesChannelId) !== 1 || $term === '' || $this->rewrites === null) {
+            return new JsonResponse(['message' => 'Ungültige Angaben.'], 400);
+        }
+
+        try {
+            $this->rewrites->disable($salesChannelId, $term);
+        } catch (\Throwable $e) {
+            $this->logger->error('Nova Suche: Umschreibung konnte nicht deaktiviert werden', ['exception' => $e]);
+
+            return new JsonResponse(['message' => 'Interner Fehler. Details stehen im Shopware-Log.'], 500);
+        }
+
+        return new JsonResponse([]);
     }
 
     private function salesChannelId(Request $request): ?string

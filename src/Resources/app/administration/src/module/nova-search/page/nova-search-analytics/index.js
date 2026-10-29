@@ -214,6 +214,23 @@ Component.register('nova-search-analytics', {
             }
         },
 
+        /** Gespeicherte Umschreibung abschalten – sie wird danach weder angewendet noch neu gelernt */
+        async disableRewrite(row) {
+            try {
+                const httpClient = Shopware.Application.getContainer('init').httpClient;
+                await httpClient.post('_action/nova-search/rewrite/disable', {
+                    salesChannelId: row.salesChannelId,
+                    term: row.term,
+                }, { headers: this.headers() });
+                row.status = 'disabled';
+                this.createNotificationSuccess({ message: this.$tc('nova-search.analytics.rewrites.disabled') });
+            } catch (error) {
+                this.createNotificationError({
+                    message: error?.response?.data?.message || this.$tc('nova-search.analytics.rewrites.error'),
+                });
+            }
+        },
+
         /** „Beheben“: Synonym- bzw. Weiterleitungsliste mit vorbelegtem Begriff öffnen */
         fix(list, term) {
             this.$router.push({ name: `nova.search.${list}`, query: { new: term } });

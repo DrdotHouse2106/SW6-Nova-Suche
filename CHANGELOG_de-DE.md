@@ -1,3 +1,16 @@
+# 1.12.0
+- Sicherheit: **Tippfehler lernen abgesichert** – eine Korrektur zählt je Besucher (Sitzung und IP) und Tag nur einmal und wird erst übernommen, wenn sie an mindestens zwei verschiedenen Tagen beobachtet wurde und die stündliche Prüfung zeigt, dass der Begriff selbst nichts findet, die Korrektur aber Treffer hat. Bisher reichte ein einziger manipulierter Aufruf
+- Bereits gelernte Korrekturen werden nach dem Update einmal neu geprüft (bis dahin inaktiv) und bei Nichtbestehen deaktiviert; gelernte Korrekturen laufen jetzt auch durch die 30-Tage-Prüfung
+- Neu in der Auswertung („Ohne Treffer“): Liste aller gespeicherten Umschreibungen (Claude und gelernt) mit Knopf „Deaktivieren“
+- Sicherheit: Lernsignale aus dem Suchfenster nur noch mit bestehender Shop-Sitzung, von derselben Website und ohne Bots; zusätzlich Grenzen je Client-IP und je Verkaufskanal (Symfony RateLimiter), auch für die Store-API
+- Sicherheit: „Beliebte Suchanfragen“ nutzen eine serverseitig geprüfte Trefferzahl statt der Angabe aus dem Browser und verlangen Suchen an mindestens drei verschiedenen Tagen
+- Sicherheit: Gelerntes Ranking und „Beliebt in der Suche“ berücksichtigen nur Produkte, die die Suche bei dem Begriff auch ohne Lernen findet; Klicks und Warenkorb zählen je IP, Begriff und Produkt einmal am Tag
+- Claude-Warteschlange: neue Begriffe je IP begrenzt, Bots ausgeschlossen, häufig gesuchte Begriffe zuerst; Sofort-Auswertung auf der Suchergebnisseite höchstens dreimal je IP und Stunde
+- Schwestershop-Suche: „nichts gefunden“ wird 10 Minuten gemerkt, Aufrufe je IP begrenzt
+- Administration: API-Routen verlangen die Berechtigung „Einstellungen lesen“ bzw. „Einstellungen bearbeiten“
+- Aufräumen: beobachtete Korrekturen und nie gelöste Begriffe nach 180 Tagen löschen; Deinstallation entfernt auch die Korrektur-Tabelle
+- README: Datenschutz-Hinweise präzisiert (Suchbegriffe sind freie Eingaben, IP nur flüchtig im Cache)
+
 # 1.11.0
 - Neu: **Tippfehler lernen** – sucht ein Besucher „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche die Korrektur. Ab 2 Beobachtungen (einstellbar) wird „vergser“ automatisch als „vergaser“ gesucht. Nur bei kleinen Abweichungen in der Schreibweise mit denselben Zahlen
 - Auswertung: Zwischenstände beim Tippen („ra“, „rah“, „rahmen“) zählen nicht mehr als eigene Suchen – nur der fertige Begriff

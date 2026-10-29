@@ -46,8 +46,9 @@ class RequestBudget
 
     /**
      * true, wenn der Schlüssel im Zeitfenster zum ersten Mal vorkommt (z. B. ein Kauf nur einmal zählen).
+     * $failOpen = false: ohne Cache gilt der Schlüssel als schon gesehen (für Lernsignale).
      */
-    public function once(string $scope, string $key, int $windowSeconds): bool
+    public function once(string $scope, string $key, int $windowSeconds, bool $failOpen = true): bool
     {
         try {
             $item = $this->cache->getItem($this->cacheKey($scope, $key));
@@ -59,7 +60,7 @@ class RequestBudget
             $item->expiresAfter($windowSeconds);
             $this->cache->save($item);
         } catch (\Throwable) {
-            return true;
+            return $failOpen;
         }
 
         return true;

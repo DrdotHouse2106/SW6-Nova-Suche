@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Admin-API für Synonyme und Weiterleitungen (Erweiterungen → Nova Suche).
+ * Lesen braucht system_config:read, Ändern system_config:update (wie die Plugin-Einstellungen).
  * {type} ist „synonym“, „redirect“ oder „hint“ (Hinweise haben keinen CSV-Import/-Export).
  */
 #[Route(defaults: ['_routeScope' => ['api']], requirements: ['type' => 'synonym|redirect|hint'])]
@@ -25,7 +26,7 @@ class AdminRulesController
     ) {
     }
 
-    #[Route(path: '/api/_action/nova-search/rules/{type}', name: 'api.action.nova_search.rules.list', methods: ['GET'])]
+    #[Route(path: '/api/_action/nova-search/rules/{type}', name: 'api.action.nova_search.rules.list', defaults: ['_acl' => ['system_config:read']], methods: ['GET'])]
     public function list(string $type, Request $request, Context $context): JsonResponse
     {
         return $this->handle($context, function () use ($type, $request): array {
@@ -39,7 +40,7 @@ class AdminRulesController
         });
     }
 
-    #[Route(path: '/api/_action/nova-search/rules/{type}', name: 'api.action.nova_search.rules.save', methods: ['POST'])]
+    #[Route(path: '/api/_action/nova-search/rules/{type}', name: 'api.action.nova_search.rules.save', defaults: ['_acl' => ['system_config:update']], methods: ['POST'])]
     public function save(string $type, Request $request, Context $context): JsonResponse
     {
         return $this->handle($context, function () use ($type, $request): array {
@@ -63,7 +64,7 @@ class AdminRulesController
         });
     }
 
-    #[Route(path: '/api/_action/nova-search/rules/{type}/{id}', name: 'api.action.nova_search.rules.delete', requirements: ['id' => '[0-9a-f]{32}'], methods: ['DELETE'])]
+    #[Route(path: '/api/_action/nova-search/rules/{type}/{id}', name: 'api.action.nova_search.rules.delete', defaults: ['_acl' => ['system_config:update']], requirements: ['id' => '[0-9a-f]{32}'], methods: ['DELETE'])]
     public function delete(string $type, string $id, Context $context): JsonResponse
     {
         return $this->handle($context, function () use ($type, $id): array {
@@ -73,7 +74,7 @@ class AdminRulesController
         });
     }
 
-    #[Route(path: '/api/_action/nova-search/rules/{type}/import', name: 'api.action.nova_search.rules.import', methods: ['POST'])]
+    #[Route(path: '/api/_action/nova-search/rules/{type}/import', name: 'api.action.nova_search.rules.import', defaults: ['_acl' => ['system_config:update']], methods: ['POST'])]
     public function import(string $type, Request $request, Context $context): JsonResponse
     {
         return $this->handle($context, function () use ($type, $request): array {
@@ -91,7 +92,7 @@ class AdminRulesController
         });
     }
 
-    #[Route(path: '/api/_action/nova-search/rules/{type}/export', name: 'api.action.nova_search.rules.export', methods: ['GET'])]
+    #[Route(path: '/api/_action/nova-search/rules/{type}/export', name: 'api.action.nova_search.rules.export', defaults: ['_acl' => ['system_config:read']], methods: ['GET'])]
     public function export(string $type, Context $context): Response
     {
         if (!$this->isAdminUser($context)) {

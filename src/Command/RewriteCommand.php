@@ -30,10 +30,11 @@ class RewriteCommand extends Command
         $stats = $this->rewriteService->run(max(1, (int) $input->getOption('limit')));
 
         $output->writeln(\sprintf(
-            'Ausgewertet: %d · Umschreibungen gespeichert: %d · Nachgeprüft: %d',
+            'Ausgewertet: %d · Umschreibungen gespeichert: %d · Nachgeprüft: %d · Korrekturen gelernt: %d',
             $stats['processed'],
             $stats['saved'],
-            $stats['rechecked']
+            $stats['rechecked'],
+            $stats['learned']
         ));
 
         return Command::SUCCESS;

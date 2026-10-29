@@ -2,6 +2,7 @@
 
 namespace Nova\Search\Service;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -11,7 +12,9 @@ use Shopware\Core\Framework\Uuid\Uuid;
  * nur ein einziges Mal von Claude ausgewertet werden.
  *
  * Status: pending (wartet auf Auswertung), done (Umschreibung vorhanden),
- *         none (keine sinnvolle Umschreibung gefunden), error (mehrfach fehlgeschlagen)
+ *         none (keine sinnvolle Umschreibung gefunden), error (mehrfach fehlgeschlagen),
+ *         review (gelernte Korrektur wird neu geprüft, bis dahin inaktiv),
+ *         disabled (deaktiviert – im Admin oder weil die Prüfung fehlschlug; wird nicht neu gelernt)
  */
 class RewriteStore
 {
@@ -19,6 +22,8 @@ class RewriteStore
     public const STATUS_DONE = 'done';
     public const STATUS_NONE = 'none';
     public const STATUS_ERROR = 'error';
+    public const STATUS_REVIEW = 'review';
+    public const STATUS_DISABLED = 'disabled';
 
     public const MAX_ATTEMPTS = 3;
 
@@ -63,6 +68,21 @@ class RewriteStore
         );
     }
 
+    /**
+     * Wie markPending(), aber nur für neue Begriffe und mit Mengenbegrenzung (Schutz der Claude-Warteschlange).
+     * Ohne Begrenzer wird nichts vorgemerkt.
+     */
+    public function queue(string $salesChannelId, string $term, ?TrafficLimiter $limiter): void
+    {
+        if ($limiter === null || !TermNormalizer::isTrackable(TermNormalizer::normalize($term))
+            || $this->isKnown($salesChannelId, $term)
+            || !$limiter->allow(TrafficLimiter::PENDING, $salesChannelId)) {
+            return;
+        }
+
+        $this->markPending($salesChannelId, $term);
+    }
+
     public function isKnown(string $salesChannelId, string $term): bool
     {
         return $this->connection->fetchOne(
@@ -76,10 +96,12 @@ class RewriteStore
      */
     public function pending(int $limitPerSalesChannel): array
     {
+        // Häufig gesuchte Begriffe zuerst – einmalige Zufallseingaben kommen erst danach dran
         /** @var list<array{sc: string, term: string}> $rows */
         $rows = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term` FROM `nova_search_rewrite`
-             WHERE `status` = :status ORDER BY `created_at` ASC LIMIT 500',
+            'SELECT LOWER(HEX(r.`sales_channel_id`)) AS sc, r.`term` FROM `nova_search_rewrite` r
+             LEFT JOIN `nova_search_term` t ON t.`sales_channel_id` = r.`sales_channel_id` AND t.`term` = r.`term`
+             WHERE r.`status` = :status ORDER BY COALESCE(t.`searches`, 0) DESC, r.`created_at` ASC LIMIT 500',
             ['status' => self::STATUS_PENDING]
         );
 
@@ -94,27 +116,75 @@ class RewriteStore
     }
 
     /**
-     * Umschreibungen, die seit 30 Tagen nicht geprüft wurden (das Sortiment kann sich geändert haben).
+     * Umschreibungen, die seit 30 Tagen nicht geprüft wurden (das Sortiment kann sich geändert haben),
+     * und gelernte Korrekturen, die neu geprüft werden müssen (sofort).
      *
-     * @return list<array{sc: string, term: string, status: string}>
+     * @return list<array{sc: string, term: string, status: string, rewrite: string|null, source: string|null}>
      */
     public function dueForRecheck(int $limit): array
     {
-        /** @var list<array{sc: string, term: string, status: string}> $rows */
+        /** @var list<array{sc: string, term: string, status: string, rewrite: string|null, source: string|null}> $rows */
         $rows = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, `status` FROM `nova_search_rewrite`
-             WHERE `status` IN (:done, :none) AND COALESCE(`updated_at`, `created_at`) < :before
-               AND (`source` IS NULL OR `source` <> :learned)
-             ORDER BY COALESCE(`updated_at`, `created_at`) ASC LIMIT ' . max(1, $limit),
+            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, `status`, `rewrite`, `source` FROM `nova_search_rewrite`
+             WHERE `status` = :review OR (`status` IN (:done, :none) AND COALESCE(`updated_at`, `created_at`) < :before)
+             ORDER BY `status` = :review DESC, COALESCE(`updated_at`, `created_at`) ASC LIMIT ' . max(1, $limit),
             [
+                'review' => self::STATUS_REVIEW,
                 'done' => self::STATUS_DONE,
                 'none' => self::STATUS_NONE,
-                'learned' => self::SOURCE_LEARNED,
                 'before' => (new \DateTimeImmutable('-30 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT),
             ]
         );
 
         return $rows;
+    }
+
+    /** Bestandene Neuprüfung einer gelernten Korrektur: wieder aktiv */
+    public function confirm(string $salesChannelId, string $term, int $hits): void
+    {
+        $this->update($salesChannelId, $term, ['status' => self::STATUS_DONE, 'hits' => $hits]);
+    }
+
+    /** Umschreibung abschalten; der Begriff wird danach weder neu gelernt noch an Claude gegeben. */
+    public function disable(string $salesChannelId, string $term): void
+    {
+        $this->update($salesChannelId, $term, ['status' => self::STATUS_DISABLED]);
+    }
+
+    /**
+     * Gespeicherte Umschreibungen für die Administration (aktive, in Prüfung, deaktivierte).
+     *
+     * @return list<array{salesChannelId: string, term: string, rewrite: string|null, status: string, source: string, hits: int, updatedAt: string}>
+     */
+    public function listRewrites(?string $salesChannelId, int $limit = 200): array
+    {
+        $where = '`status` IN (:statuses)';
+        $params = ['statuses' => [self::STATUS_DONE, self::STATUS_REVIEW, self::STATUS_DISABLED]];
+        $types = ['statuses' => ArrayParameterType::STRING];
+        if ($salesChannelId !== null) {
+            $where .= ' AND `sales_channel_id` = :sc';
+            $params['sc'] = Uuid::fromHexToBytes($salesChannelId);
+        }
+
+        /** @var list<array{sc: string, term: string, rewrite: string|null, status: string, source: string|null, hits: int|string, changed: string}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, `rewrite`, `status`, `source`, `hits`,
+                    COALESCE(`updated_at`, `created_at`) AS changed
+             FROM `nova_search_rewrite` WHERE ' . $where . '
+             ORDER BY `status` = :disabled ASC, changed DESC LIMIT ' . max(1, min($limit, 500)),
+            $params + ['disabled' => self::STATUS_DISABLED],
+            $types
+        );
+
+        return array_map(static fn (array $row): array => [
+            'salesChannelId' => $row['sc'],
+            'term' => $row['term'],
+            'rewrite' => $row['rewrite'],
+            'status' => $row['status'],
+            'source' => $row['source'] === self::SOURCE_LEARNED ? self::SOURCE_LEARNED : 'claude',
+            'hits' => (int) $row['hits'],
+            'updatedAt' => $row['changed'],
+        ], $rows);
     }
 
     public function saveRewrite(string $salesChannelId, string $term, string $rewrite, int $hits): void
@@ -151,7 +221,9 @@ class RewriteStore
     }
 
     /**
-     * Zählt eine beobachtete Korrektur („vergser“ ohne Klick → „vergaser“ mit Klick).
+     * Zählt eine beobachtete Korrektur („vergser“ ohne Klick → „vergaser“ mit Klick) – je Besucher und
+     * Tag höchstens einmal (prüft der Aufrufer) – und an wie vielen verschiedenen Tagen sie vorkam.
+     * Übernommen wird sie erst im Hintergrund nach einer Trefferprüfung (siehe learnCandidates()).
      *
      * @return int bisherige Anzahl dieses Paares
      */
@@ -161,13 +233,16 @@ class RewriteStore
             'sc' => Uuid::fromHexToBytes($salesChannelId),
             'term' => TermNormalizer::normalize($term),
             'target' => TermNormalizer::normalize($target),
+            'today' => (new \DateTimeImmutable())->format('Y-m-d'),
             'now' => $this->now(),
         ];
 
+        // `days` vor `last_day` setzen: MySQL wertet die Zuweisungen von links nach rechts aus
         $this->connection->executeStatement(
-            'INSERT INTO `nova_search_refinement` (`sales_channel_id`, `term`, `target`, `count`, `created_at`)
-             VALUES (:sc, :term, :target, 1, :now)
-             ON DUPLICATE KEY UPDATE `count` = `count` + 1, `updated_at` = :now',
+            'INSERT INTO `nova_search_refinement` (`sales_channel_id`, `term`, `target`, `count`, `days`, `last_day`, `created_at`)
+             VALUES (:sc, :term, :target, 1, 1, :today, :now)
+             ON DUPLICATE KEY UPDATE `count` = `count` + 1, `days` = `days` + IF(`last_day` <=> :today, 0, 1),
+                                     `last_day` = :today, `updated_at` = :now',
             $params
         );
 
@@ -178,9 +253,44 @@ class RewriteStore
     }
 
     /**
-     * Gelernte Korrektur als Umschreibung speichern. Eine von Claude gefundene Umschreibung bleibt bestehen.
+     * Beobachtete Korrekturen, die oft genug und an genug verschiedenen Tagen vorkamen und seit der
+     * letzten Beobachtung nicht geprüft wurden – häufigste zuerst.
+     *
+     * @return list<array{sc: string, term: string, target: string, count: int}>
      */
-    public function saveLearned(string $salesChannelId, string $term, string $target): void
+    public function learnCandidates(int $minCount, int $minDays, int $limit): array
+    {
+        /** @var list<array{sc: string, term: string, target: string, count: int|string}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(`sales_channel_id`)) AS sc, `term`, `target`, `count` FROM `nova_search_refinement`
+             WHERE `count` >= :count AND `days` >= :days
+               AND (`checked_at` IS NULL OR `checked_at` < COALESCE(`updated_at`, `created_at`))
+             ORDER BY `count` DESC LIMIT ' . max(1, $limit),
+            ['count' => max(1, $minCount), 'days' => max(1, $minDays)]
+        );
+
+        return array_map(static fn (array $row): array => [
+            'sc' => $row['sc'],
+            'term' => $row['term'],
+            'target' => $row['target'],
+            'count' => (int) $row['count'],
+        ], $rows);
+    }
+
+    public function markRefinementChecked(string $salesChannelId, string $term, string $target): void
+    {
+        $this->connection->executeStatement(
+            'UPDATE `nova_search_refinement` SET `checked_at` = :now
+             WHERE `sales_channel_id` = :sc AND `term` = :term AND `target` = :target',
+            ['now' => $this->now(), 'sc' => Uuid::fromHexToBytes($salesChannelId), 'term' => $term, 'target' => $target]
+        );
+    }
+
+    /**
+     * Gelernte Korrektur als Umschreibung speichern. Eine von Claude gefundene oder eine deaktivierte
+     * Umschreibung bleibt bestehen.
+     */
+    public function saveLearned(string $salesChannelId, string $term, string $target, int $hits = 0): void
     {
         $term = TermNormalizer::normalize($term);
         $target = mb_substr(TermNormalizer::normalize($target), 0, TermNormalizer::MAX_LENGTH);
@@ -190,15 +300,16 @@ class RewriteStore
             'SELECT `status`, `source` FROM `nova_search_rewrite` WHERE `sales_channel_id` = :sc AND `term` = :term',
             ['sc' => $sc, 'term' => $term]
         );
-        if ($row !== false && $row['status'] === self::STATUS_DONE && $row['source'] !== self::SOURCE_LEARNED) {
+        if ($row !== false && ($row['status'] === self::STATUS_DISABLED
+            || ($row['status'] === self::STATUS_DONE && $row['source'] !== self::SOURCE_LEARNED))) {
             return;
         }
 
         $this->connection->executeStatement(
-            'INSERT INTO `nova_search_rewrite` (`sales_channel_id`, `term`, `rewrite`, `status`, `source`, `created_at`)
-             VALUES (:sc, :term, :rewrite, :status, :source, :now)
-             ON DUPLICATE KEY UPDATE `rewrite` = :rewrite, `status` = :status, `source` = :source, `updated_at` = :now',
-            ['sc' => $sc, 'term' => $term, 'rewrite' => $target, 'status' => self::STATUS_DONE, 'source' => self::SOURCE_LEARNED, 'now' => $this->now()]
+            'INSERT INTO `nova_search_rewrite` (`sales_channel_id`, `term`, `rewrite`, `status`, `source`, `hits`, `created_at`)
+             VALUES (:sc, :term, :rewrite, :status, :source, :hits, :now)
+             ON DUPLICATE KEY UPDATE `rewrite` = :rewrite, `status` = :status, `source` = :source, `hits` = :hits, `updated_at` = :now',
+            ['sc' => $sc, 'term' => $term, 'rewrite' => $target, 'status' => self::STATUS_DONE, 'source' => self::SOURCE_LEARNED, 'hits' => max(0, $hits), 'now' => $this->now()]
         );
         unset($this->memo[$salesChannelId . '|' . $term]);
     }
@@ -211,6 +322,23 @@ class RewriteStore
             ['sc' => Uuid::fromHexToBytes($salesChannelId), 'term' => TermNormalizer::normalize($term)]
         );
         unset($this->memo[$salesChannelId . '|' . TermNormalizer::normalize($term)]);
+    }
+
+    /**
+     * Datensparsamkeit und Schutz vor Füllen der Tabellen: alte Beobachtungen und nie gelöste Begriffe entfernen.
+     */
+    public function cleanup(): void
+    {
+        $before = (new \DateTimeImmutable('-180 days'))->format(Defaults::STORAGE_DATE_TIME_FORMAT);
+        $this->connection->executeStatement(
+            'DELETE FROM `nova_search_refinement` WHERE COALESCE(`updated_at`, `created_at`) < :before',
+            ['before' => $before]
+        );
+        $this->connection->executeStatement(
+            'DELETE FROM `nova_search_rewrite` WHERE `status` IN (:statuses) AND COALESCE(`updated_at`, `created_at`) < :before',
+            ['statuses' => [self::STATUS_PENDING, self::STATUS_NONE, self::STATUS_ERROR], 'before' => $before],
+            ['statuses' => ArrayParameterType::STRING]
+        );
     }
 
     public function touch(string $salesChannelId, string $term): void
