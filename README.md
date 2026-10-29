@@ -200,6 +200,18 @@ Sieht der Suchbegriff wie eine Nummer aus (mindestens 3 Ziffern, keine weiteren 
 - Der Index wird beim Speichern von Produkten automatisch aktualisiert. Komplett aufgebaut wird er beim ersten stündlichen Lauf nach der Installation und nach geänderten Einstellungen – sofort mit `bin/console nova-search:numbers`.
 - Einstellungen unter *Konfigurieren → Nummernsuche*, am besten unter „Alle Verkaufskanäle“ (der Index gilt für alle Shops; was ein Shop zeigen darf, prüft weiterhin Shopware).
 
+## Wortteile: zusammengesetzte Wörter finden
+
+Shopware findet ein Suchwort nur am **Anfang oder Ende** eines Wortes im Shop. „vergaser“ findet deshalb „Vergaserdichtung“ und „Doppelvergaser“, aber nicht „Komplettsatz zur Überholung des **Doppelvergasers**“ – das angehängte „s“ (Genitiv/Plural) verhindert den Treffer am Wortende.
+
+Seit 1.13.0 ergänzt die Nova Suche (Schalter *Konfigurieren → Wortteile*, Standard an):
+
+- **Wörter ab 5 Buchstaben** finden auch Wörter, die sie **mittendrin** enthalten: „vergaser“ → „Doppelvergasers“, „Einzelvergasers“. Diese Treffer stehen hinter den genauen.
+- **Zusammengesetzte Suchbegriffe ohne Treffer** werden in zwei Teile zerlegt, die beide passen müssen: „vergasersatz“ → „vergaser“ + Wörter auf „…satz“ (Komplettsatz, Dichtungssatz). Der erste Teil muss ein Wort aus dem Shop sein, der zweite steht am Wortende – so entsteht kein Zufallstreffer wie „vergas“ + „ersatz“. Ein Fugen-s wird erkannt („überholungssatz“ → „überholung“ + „satz“).
+- Synonyme nutzen das ebenfalls.
+
+**Was Wortteile nicht leisten:** Unterschiedliche Wörter für dasselbe („Überholsatz“ ↔ „Überholung“, „Dichtsatz“ ↔ „Dichtungssatz“) – dafür sind **Synonyme** da (siehe unten). Hat ein Suchwort selbst Treffer („überholsatz“ findet „Bremsenüberholsatz“), wird es nicht zerlegt.
+
 ## Suchregeln: Synonyme und Weiterleitungen
 
 *Erweiterungen → Nova Suche → Reiter **Synonyme** bzw. **Weiterleitungen**.* Jede Regel ist ein eigener Eintrag in einer Liste – mit Suchfeld, Schalter „Aktiv“, Bearbeiten und Löschen. Ohne Verkaufskanal gilt eine Regel für alle Shops; mit Verkaufskanal nur dort. Gilt für Suchfenster, Suchergebnisseite und App, sofort nach dem Speichern.
@@ -351,6 +363,7 @@ bin/console cache:clear
 | Monatliches Kostenlimit (USD) | 5 | Für alle Verkaufskanäle zusammen – unter „Alle Verkaufskanäle“ einstellen. 0 = Claude aus |
 | Warnschwelle (% des Limits) | 80 | Einmaliger Hinweis im Log pro Monat |
 | Neue Begriffe auf der Suchergebnisseite sofort auswerten | aus | |
+| Wörter auch innerhalb zusammengesetzter Wörter finden | an | Siehe „Wortteile“ |
 
 Die Mindestlänge des Suchbegriffs kommt aus Shopwares Sucheinstellungen (*Einstellungen → Suche*).
 

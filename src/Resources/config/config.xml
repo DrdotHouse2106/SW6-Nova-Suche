@@ -325,6 +325,20 @@
     </card>
 
     <card>
+        <title>Word parts</title>
+        <title lang="de-DE">Wortteile</title>
+
+        <input-field type="bool">
+            <name>wordParts</name>
+            <label>Find words inside compound words</label>
+            <label lang="de-DE">Wörter auch innerhalb zusammengesetzter Wörter finden</label>
+            <helpText>Shopware only matches the beginning or end of a word. With this option, search words of 5 or more letters are also found inside longer words, and a compound search term without results is split into two parts that must both match.</helpText>
+            <helpText lang="de-DE">Shopware findet ein Suchwort nur am Wortanfang oder -ende: „vergaser“ findet „Vergaserdichtung“ und „Doppelvergaser“, aber nicht „Komplettsatz zur Überholung des Doppelvergasers“. Mit dieser Option finden Wörter ab 5 Buchstaben auch Wörter, die sie mittendrin enthalten. Ein zusammengesetzter Suchbegriff ohne Treffer wird in zwei Teile zerlegt, die beide passen müssen („vergasersatz“ → „vergaser“ + „…satz“). Solche Treffer stehen hinter den genauen.</helpText>
+            <defaultValue>true</defaultValue>
+        </input-field>
+    </card>
+
+    <card>
         <title>Number search</title>
         <title lang="de-DE">Nummernsuche (Artikel-, Hersteller-, OE-Nummern)</title>
 

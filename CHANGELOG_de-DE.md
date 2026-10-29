@@ -1,3 +1,8 @@
+# 1.13.0
+- Neu: **Wortteile** – Shopware findet ein Suchwort nur am Wortanfang oder -ende. „vergaser“ fand deshalb „Doppelvergaser“, aber nicht „Komplettsatz zur Überholung des Doppelvergasers“ (Genitiv). Jetzt finden Wörter ab 5 Buchstaben auch Wörter, die sie mittendrin enthalten. Diese Treffer stehen hinter den genauen
+- Neu: Ein zusammengesetzter Suchbegriff ohne Treffer wird in zwei Teile zerlegt, die beide passen müssen: „vergasersatz“ → „vergaser“ + Wörter auf „…satz“. Der erste Teil muss ein Wort aus dem Shop sein, der zweite steht am Wortende, so entstehen keine Zufallstreffer wie „vergas“ + „ersatz“
+- Synonyme profitieren davon ebenfalls. Abschaltbar unter *Konfigurieren → Wortteile*
+
 # 1.12.0
 - Sicherheit: **Tippfehler lernen abgesichert** – eine Korrektur zählt je Besucher (Sitzung und IP) und Tag nur einmal und wird erst übernommen, wenn sie an mindestens zwei verschiedenen Tagen beobachtet wurde und die stündliche Prüfung zeigt, dass der Begriff selbst nichts findet, die Korrektur aber Treffer hat. Bisher reichte ein einziger manipulierter Aufruf
 - Bereits gelernte Korrekturen werden nach dem Update einmal neu geprüft (bis dahin inaktiv) und bei Nichtbestehen deaktiviert; gelernte Korrekturen laufen jetzt auch durch die 30-Tage-Prüfung

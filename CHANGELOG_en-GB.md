@@ -1,3 +1,8 @@
+# 1.13.0
+- New: **word parts** – Shopware only matches a search word at the beginning or end of a word, so "vergaser" found "Doppelvergaser" but not "Doppelvergasers" (genitive). Words of 5 or more letters now also match inside longer words; these hits rank behind exact ones
+- New: a compound search term without results is split into two parts that must both match ("vergasersatz" → "vergaser" + words ending in "satz"). The first part must be a word from the shop, the second part must end the word, which avoids random splits like "vergas" + "ersatz"
+- Synonyms benefit as well. Can be switched off under *Configure → Word parts*
+
 # 1.12.0
 - Security: learned spelling corrections hardened – counted once per visitor (session and IP) and day, applied only after observations on at least two different days and an hourly check that the term itself has no results while the correction has. Previously a single forged request was enough
 - Existing learned corrections are re-checked once after the update (inactive until then) and disabled if they fail; learned corrections are now part of the 30-day re-check

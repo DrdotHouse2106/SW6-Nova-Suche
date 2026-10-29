@@ -91,6 +91,10 @@ Known pitfalls from real installations. **Please add new ones** (or open an issu
 - **Hints** (*Extensions → Nova Search → Hints*): if one of the words appears in the search term, a hint with optional link is shown (`{term}` in the link is replaced by the search term).
 - **"Request this part"** (1.10.0): with 0 results a small form opens right in the search window – email or phone is enough, the request is mailed to the shop, the customer stays in the search. Optional link to the contact page with pre-filled subject and search term.
 
+## Word parts (1.13.0)
+
+Shopware only matches a search word at the beginning or end of a word, so "vergaser" finds "Doppelvergaser" but not "Doppelvergasers" (genitive). With *Configure → Word parts* (default on), words of 5 or more letters also match inside longer words (ranked behind exact hits), and a compound search term without results is split into two parts that must both match ("vergasersatz" → "vergaser" + words ending in "satz"). The first part must be a word from the shop and the second part must end the word, so random splits like "vergas" + "ersatz" do not happen. Different words for the same thing ("Überholsatz" vs. "Überholung") still need synonyms.
+
 ## Number search (1.3.0)
 
 Terms that look like a number (at least 3 digits, no other words) are looked up in a normalized **number index** first: product number, manufacturer number, EAN and optionally custom fields and properties (e.g. OE numbers). Spaces, dots, dashes and slashes are ignored (`25043 25031` = `2504325031`). If nothing matches, the regular search runs. A checkbox "Exact part number only" next to the search field restricts results to products with exactly this number (Store API: `exactNumber: true`). Rebuild: `bin/console nova-search:numbers` (also hourly after settings changed).
