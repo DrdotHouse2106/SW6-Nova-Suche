@@ -84,6 +84,13 @@ jobs:
           git archive --format=zip --prefix="$name/" -o "$name-${{ steps.meta.outputs.version }}.zip" HEAD -- "${paths[@]}"
           unzip -l "$name-${{ steps.meta.outputs.version }}.zip" | tail -1
 
+      - name: Prüfsumme (.sha256) zum ZIP erzeugen
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          zip="${{ steps.meta.outputs.name }}-${{ steps.meta.outputs.version }}.zip"
+          sha256sum "$zip" > "$zip.sha256"
+          cat "$zip.sha256"
+
       - name: Release anlegen
         if: steps.exists.outputs.skip == 'false'
         env:
@@ -91,6 +98,7 @@ jobs:
         run: |
           gh release create "${{ steps.meta.outputs.tag }}" \
             "${{ steps.meta.outputs.name }}-${{ steps.meta.outputs.version }}.zip" \
+            "${{ steps.meta.outputs.name }}-${{ steps.meta.outputs.version }}.zip.sha256" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.meta.outputs.name }} ${{ steps.meta.outputs.version }}" \
             --notes-file notes.md
