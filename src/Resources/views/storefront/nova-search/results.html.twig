@@ -55,9 +55,9 @@
                                 <form class="nova-search-request-form" action="{{ path('frontend.nova-search.request') }}" method="post" data-nova-search-request data-error-text="{{ 'novaSearch.requestError'|trans|striptags }}" novalidate>
                                     <p class="nova-search-request-intro">{{ 'novaSearch.requestIntro'|trans }}</p>
                                     <input type="hidden" name="term" value="{{ term }}">
-                                    {# Für Menschen unsichtbar – Bots füllen es aus #}
+                                    {# Für Menschen unsichtbar – Bots füllen es aus. Neutraler Name, damit das Autofill des Browsers es nicht befüllt #}
                                     <div class="nova-search-request-hp" aria-hidden="true">
-                                        <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+                                        <label>Nicht ausfüllen <input type="text" name="nova_hp_field" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore></label>
                                     </div>
                                     <label class="nova-search-request-field is-wide">
                                         <span>{{ 'novaSearch.requestMessage'|trans }}</span>

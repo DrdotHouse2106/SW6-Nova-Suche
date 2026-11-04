@@ -9,6 +9,7 @@ use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Product\SalesChannel\Search\AbstractProductSearchRoute;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\HttpException;
 use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
@@ -77,19 +78,38 @@ class RewriteService
             return null;
         }
 
+        // Der Aufrufer (Suchergebnisseite) hat die 0 Treffer gerade selbst ermittelt
         $this->store->markPending($salesChannelId, $term);
-        $this->process($salesChannelId, [$term], $timeout, $context);
+        $this->process($salesChannelId, [$term], $timeout, $context, false);
 
         return $this->store->find($salesChannelId, $term);
     }
 
     /**
      * @param list<string> $terms
+     * @param bool         $checkTerms Begriffe vorher gegen die Produktsuche prüfen (entfällt nur, wenn der
+     *                                 Aufrufer die 0 Treffer gerade selbst serverseitig ermittelt hat)
      */
-    private function process(string $salesChannelId, array $terms, float $timeout, ?SalesChannelContext $context): int
+    private function process(string $salesChannelId, array $terms, float $timeout, ?SalesChannelContext $context, bool $checkTerms = true): int
     {
         try {
             $context ??= $this->context($salesChannelId);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Nova Suche: Verkaufskanal für die Umschreibung nicht verfügbar', ['exception' => $e]);
+
+            return 0;
+        }
+
+        // Nur Begriffe, die serverseitig wirklich nichts finden, gehen an Claude – die Trefferzahl aus
+        // Suchfenster/App kommt vom Browser und könnte gefälscht sein
+        if ($checkTerms) {
+            $terms = $this->withoutHits($salesChannelId, $terms, $context);
+            if ($terms === []) {
+                return 0;
+            }
+        }
+
+        try {
             $suggestions = $this->suggester->suggest($salesChannelId, $terms, $this->safeShop($salesChannelId), $timeout);
         } catch (ClaudeBudgetExceededException) {
             // Kostenlimit erreicht: Begriffe bleiben offen und werden später ausgewertet
@@ -106,9 +126,12 @@ class RewriteService
         $saved = 0;
         foreach ($terms as $term) {
             $best = null;
+            $unknown = false;
             foreach ($suggestions[$term] ?? [] as $alternative) {
                 $hits = $this->hits($alternative, $context);
-                if ($hits > 0) {
+                if ($hits === null) {
+                    $unknown = true;
+                } elseif ($hits > 0) {
                     $best = [$alternative, $hits];
                     break;
                 }
@@ -117,12 +140,41 @@ class RewriteService
             if ($best !== null) {
                 $this->store->saveRewrite($salesChannelId, $term, $best[0], $best[1]);
                 ++$saved;
+            } elseif ($unknown) {
+                // Suche gestört: nicht als „keine Lösung“ speichern, später erneut versuchen (max. MAX_ATTEMPTS)
+                $this->store->markFailed($salesChannelId, $term);
             } else {
                 $this->store->markNone($salesChannelId, $term);
             }
         }
 
         return $saved;
+    }
+
+    /**
+     * Begriffe, die die echte Produktsuche selbst findet, scheiden aus („keine Umschreibung nötig“,
+     * nach 30 Tagen erneut geprüft). Ist die Suche gestört, bleibt der Begriff offen für den nächsten Lauf.
+     *
+     * @param list<string> $terms
+     *
+     * @return list<string>
+     */
+    private function withoutHits(string $salesChannelId, array $terms, SalesChannelContext $context): array
+    {
+        $open = [];
+        foreach ($terms as $term) {
+            $hits = $this->hits($term, $context);
+            if ($hits === null) {
+                continue;
+            }
+            if ($hits > 0) {
+                $this->store->markNone($salesChannelId, $term);
+                continue;
+            }
+            $open[] = $term;
+        }
+
+        return $open;
     }
 
     /**
@@ -140,19 +192,26 @@ class RewriteService
             $min = max(self::DEFAULT_CORRECTION_MIN_COUNT, $this->config->getInt('NovaSearch.config.correctionMinCount', $salesChannelId));
 
             try {
-                // Geprüft wird erst wieder nach einer neuen Beobachtung
-                $this->store->markRefinementChecked($salesChannelId, $row['term'], $row['target']);
                 if (isset($done[$key]) || $row['count'] < $min
                     || $this->config->get('NovaSearch.config.learnCorrections', $salesChannelId) === false
                     || $this->config->get('NovaSearch.config.learningActive', $salesChannelId) === false
                     // Begriff hat schon eine aktive Umschreibung (Claude oder früher gelernt)
                     || $this->store->find($salesChannelId, $row['term']) !== null) {
+                    // Geprüft wird erst wieder nach einer neuen Beobachtung
+                    $this->store->markRefinementChecked($salesChannelId, $row['term'], $row['target']);
                     continue;
                 }
 
                 $context = $this->context($salesChannelId);
                 $targetHits = $this->hits($row['target'], $context);
-                if ($targetHits > 0 && $this->hits($row['term'], $context) === 0) {
+                $termHits = $targetHits !== null && $targetHits > 0 ? $this->hits($row['term'], $context) : 0;
+                if ($targetHits === null || $termHits === null) {
+                    // Suche gestört: nicht als geprüft markieren, nächster Lauf versucht es erneut
+                    continue;
+                }
+
+                $this->store->markRefinementChecked($salesChannelId, $row['term'], $row['target']);
+                if ($targetHits > 0 && $termHits === 0) {
                     $this->store->saveLearned($salesChannelId, $row['term'], $row['target'], $targetHits);
                     $done[$key] = true;
                     ++$learned;
@@ -165,8 +224,11 @@ class RewriteService
         return $learned;
     }
 
-    /** Trefferanzahl der echten Produktsuche (ohne Umschreibungen und gelerntes Ranking) */
-    public function total(string $salesChannelId, string $term, ?Criteria $criteria = null, bool $withRewrites = false): int
+    /**
+     * Trefferanzahl der echten Produktsuche (ohne Umschreibungen und gelerntes Ranking);
+     * null = unbekannt (Suche gestört) – Aufrufer speichern und löschen dann nichts.
+     */
+    public function total(string $salesChannelId, string $term, ?Criteria $criteria = null, bool $withRewrites = false): ?int
     {
         return $this->hits($term, $this->context($salesChannelId), $criteria, $withRewrites);
     }
@@ -187,6 +249,10 @@ class RewriteService
                 $rewriteHits = $row['status'] !== RewriteStore::STATUS_NONE && $hits === 0 && $row['rewrite'] !== null
                     ? $this->hits($row['rewrite'], $context)
                     : 0;
+                if ($hits === null || $rewriteHits === null) {
+                    // Suche gestört: nichts löschen oder deaktivieren, nächster Lauf prüft erneut
+                    continue;
+                }
             } catch (\Throwable $e) {
                 $this->logger->warning('Nova Suche: Prüfung fehlgeschlagen', ['exception' => $e]);
                 continue;
@@ -221,8 +287,8 @@ class RewriteService
         return $count;
     }
 
-    /** Trefferanzahl der echten Produktsuche – ohne gespeicherte Umschreibungen und gelerntes Ranking */
-    private function hits(string $term, SalesChannelContext $context, ?Criteria $criteria = null, bool $withRewrites = false): int
+    /** Trefferanzahl der echten Produktsuche – ohne gespeicherte Umschreibungen und gelerntes Ranking; null bei Fehler */
+    private function hits(string $term, SalesChannelContext $context, ?Criteria $criteria = null, bool $withRewrites = false): ?int
     {
         $request = new Request(['search' => $term, 'limit' => 1, 'p' => 1], ['no-aggregations' => true]);
         $request->attributes->set(LearningProductSearchBuilder::SKIP_REWRITE, !$withRewrites);
@@ -230,8 +296,13 @@ class RewriteService
 
         try {
             return $this->productSearchRoute->load($request, $context, $criteria ?? new Criteria())->getListingResult()->getTotal();
-        } catch (\Throwable) {
+        } catch (HttpException) {
+            // z. B. Begriff besteht nur aus Stoppwörtern – die Suche findet dafür wirklich nichts
             return 0;
+        } catch (\Throwable $e) {
+            $this->logger->notice('Nova Suche: Trefferprüfung nicht möglich', ['exception' => $e]);
+
+            return null;
         }
     }
 

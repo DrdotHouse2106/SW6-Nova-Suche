@@ -26,6 +26,13 @@
             <call method="setLimiter">
                 <argument type="service" id="Nova\Search\Service\TrafficLimiter"/>
             </call>
+            <call method="setZeroResults">
+                <argument type="service" id="Nova\Search\Service\ZeroResultMarker"/>
+            </call>
+        </service>
+
+        <service id="Nova\Search\Service\ZeroResultMarker">
+            <argument type="service" id="cache.object"/>
         </service>
 
         <service id="Nova\Search\Service\NumberIndex">
@@ -69,6 +76,8 @@
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <argument type="service" id="logger"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader" on-invalid="null"/>
+            <argument type="service" id="cache.object"/>
+            <argument type="service" id="request_stack"/>
             <tag name="kernel.reset" method="reset"/>
         </service>
 
@@ -94,6 +103,10 @@
             <argument type="service" id="cache.object"/>
             <argument type="service" id="request_stack"/>
             <argument type="service" id="Nova\Search\Service\RequestBudget"/>
+            <!-- Exakte Zählung auch bei gleichzeitigen Anfragen; ohne Lock-Komponente wie bisher -->
+            <call method="setLockFactory">
+                <argument type="service" id="lock.factory" on-invalid="null"/>
+            </call>
         </service>
 
         <!-- Suche: Umschreibungen anwenden und gelernte Produkte boosten -->
@@ -297,6 +310,12 @@
             <argument type="service" id="Nova\Search\Rules\SearchRules"/>
             <argument type="service" id="Nova\Search\Service\HighlightProvider"/>
             <argument type="service" id="Nova\Search\Service\PartnerSearch"/>
+            <call method="setLimiter">
+                <argument type="service" id="Nova\Search\Service\TrafficLimiter"/>
+            </call>
+            <call method="setZeroResults">
+                <argument type="service" id="Nova\Search\Service\ZeroResultMarker"/>
+            </call>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

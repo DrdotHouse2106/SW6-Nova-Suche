@@ -17,13 +17,16 @@ use Symfony\Component\HttpFoundation\Request;
  *  - Grenzen je Client-IP und je Verkaufskanal (TrafficLimiter::FEEDBACK)
  *  - eine Bewertung je Besucher, Begriff und Tag: Merker im Objekt-Cache mit Hash aus Sitzung bzw.
  *    Kontext-Token, zusätzlich je IP-Hash – nichts davon landet in der Datenbank
- *  - der Freitext lässt sich nur einmal an die eigene „Daumen runter“-Bewertung anhängen
+ *  - der Freitext lässt sich nur einmal an die eigene „Daumen runter“-Bewertung anhängen,
+ *    höchstens MAX_TEXTS_PER_DAY Texte je IP und Tag
  *  - die Trefferzahl ermittelt der Server selbst (echte Produktsuche inkl. gespeicherter Umschreibung)
  */
 class FeedbackRecorder
 {
     private const DAY_SECONDS = 86400;
     private const HITS_CACHE_SECONDS = 900;
+    /** Freitexte je Client-IP (IPv6: /64) und Tag – weitere Bewertungen zählen, aber ohne Text */
+    public const MAX_TEXTS_PER_DAY = 10;
 
     private ?TrafficLimiter $limiter = null;
 
@@ -73,6 +76,11 @@ class FeedbackRecorder
 
         $day = date('Y-m-d');
         try {
+            // Texte zusätzlich je IP und Tag begrenzen – so lässt sich der Admin-Reiter nicht mit Text fluten
+            if ($text !== null && !$this->limiter->budget('feedback-text', $salesChannelId . '|' . $day, self::MAX_TEXTS_PER_DAY, self::DAY_SECONDS, $request)) {
+                $text = null;
+            }
+
             $memory = $this->cache->getItem('nova-search-feedback-' . hash('sha256', $visitor . '|' . $salesChannelId . '|' . $term . '|' . $day));
             $known = $memory->get();
 
@@ -121,6 +129,9 @@ class FeedbackRecorder
             }
 
             $hits = $this->rewriteService->total($salesChannelId, $term, null, true);
+            if ($hits === null) {
+                return null;
+            }
             $item->set($hits);
             $item->expiresAfter(self::HITS_CACHE_SECONDS);
             $this->cache->save($item);

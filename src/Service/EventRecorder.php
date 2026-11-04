@@ -33,6 +33,8 @@ class EventRecorder
 
     private ?TrafficLimiter $limiter = null;
 
+    private ?ZeroResultMarker $zeroResults = null;
+
     public function __construct(
         private readonly SearchStatistics $statistics,
         private readonly RewriteStore $rewrites,
@@ -44,6 +46,11 @@ class EventRecorder
     public function setLimiter(TrafficLimiter $limiter): void
     {
         $this->limiter = $limiter;
+    }
+
+    public function setZeroResults(ZeroResultMarker $zeroResults): void
+    {
+        $this->zeroResults = $zeroResults;
     }
 
     /**
@@ -178,7 +185,10 @@ class EventRecorder
                     $hits = $event['total'] ?? $event['hits'] ?? 0;
                     $hits = \is_numeric($hits) ? (int) $hits : 0;
                     $this->statistics->recordSearch($salesChannelId, $term, $hits);
-                    if ($hits === 0 && empty($event['rewritten'])) {
+                    // Die Trefferzahl kommt vom Browser: vorgemerkt wird nur, wenn der Server selbst kurz
+                    // vorher 0 Treffer ausgeliefert hat (Suchfenster). Die Store-API-Suche merkt selbst vor.
+                    if ($hits === 0 && empty($event['rewritten'])
+                        && $this->zeroResults?->confirmed($salesChannelId, $term) === true) {
                         $this->rewrites->queue($salesChannelId, $term, $this->limiter);
                     }
                     ++$saved;

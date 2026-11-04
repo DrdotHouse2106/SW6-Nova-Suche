@@ -4,10 +4,14 @@ namespace Nova\Search\Controller;
 
 use Nova\Search\Rules\SearchRules;
 use Nova\Search\Search\LearningProductSearchBuilder;
+use Nova\Search\Search\WordPartTermInterpreter;
 use Nova\Search\Subscriber\SearchRedirectSubscriber;
 use Nova\Search\Service\HighlightProvider;
 use Nova\Search\Service\PartnerSearch;
 use Nova\Search\Service\PopularSearches;
+use Nova\Search\Service\SearchCountGuard;
+use Nova\Search\Service\TrafficLimiter;
+use Nova\Search\Service\ZeroResultMarker;
 use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductManufacturer\ProductManufacturerEntity;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
@@ -46,7 +50,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * und gelernter Platzierungen (siehe LearningProductSearchBuilder). Eigenschafts-, Bewertungs- und
  * Versandfilter werden abgeschaltet, damit die Antwort auch ohne OpenSearch schnell ist.
  * Antworten sind per HTTP-Cache cachebar – außer bei 0 Treffern, damit eine später gelernte
- * Umschreibung sofort greift.
+ * Umschreibung sofort greift. Nicht gecachte Anfragen sind je Client-IP begrenzt (TrafficLimiter::INSTANT).
+ * Liefert der Server selbst 0 Treffer, merkt er sich das kurz (ZeroResultMarker) – nur dann darf der
+ * Beacon des Suchfensters den Begriff für Claude vormerken.
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
 class InstantSearchController extends StorefrontController
@@ -54,6 +60,10 @@ class InstantSearchController extends StorefrontController
     private const MIN_TERM_LENGTH = 2;
     private const MAX_TERM_LENGTH = 100;
     private const MANUFACTURER_COUNT = 'nova-manufacturer-count';
+
+    private ?TrafficLimiter $limiter = null;
+
+    private ?ZeroResultMarker $zeroResults = null;
 
     /**
      * @param SalesChannelRepository<CategoryCollection> $categoryRepository
@@ -71,6 +81,16 @@ class InstantSearchController extends StorefrontController
     ) {
     }
 
+    public function setLimiter(TrafficLimiter $limiter): void
+    {
+        $this->limiter = $limiter;
+    }
+
+    public function setZeroResults(ZeroResultMarker $zeroResults): void
+    {
+        $this->zeroResults = $zeroResults;
+    }
+
     #[Route(
         path: '/nova-search',
         name: 'frontend.nova-search.instant',
@@ -81,9 +101,19 @@ class InstantSearchController extends StorefrontController
     {
         $term = mb_substr(trim((string) $request->query->get('search', '')), 0, self::MAX_TERM_LENGTH);
 
+        // Nur nicht gecachte Anfragen kommen hier an. Über der Grenze je IP wird nicht abgelehnt (hinter
+        // einem falsch eingerichteten Proxy teilen sich alle Besucher eine IP), sondern nur die einfache
+        // Suche geliefert: ohne Wortteile, Schwestershops, Kategorien und Empfehlungen – und ungecacht
+        $light = $this->limiter !== null && !$this->limiter->allow(TrafficLimiter::INSTANT, $context->getSalesChannelId(), 1, $request);
+        if ($light) {
+            $request->attributes->set(WordPartTermInterpreter::SKIP, true);
+            $request->attributes->set(PlatformRequest::ATTRIBUTE_HTTP_CACHE, false);
+            $request->attributes->set(PlatformRequest::ATTRIBUTE_NO_STORE, true);
+        }
+
         $response = mb_strlen($term) < self::MIN_TERM_LENGTH
             ? $this->renderStart($request, $context)
-            : $this->renderResults($term, $request, $context);
+            : $this->renderResults($term, $request, $context, $light);
 
         $response->headers->set('x-robots-tag', 'noindex');
 
@@ -170,7 +200,7 @@ class InstantSearchController extends StorefrontController
         return $sorted;
     }
 
-    private function renderResults(string $term, Request $request, SalesChannelContext $context): Response
+    private function renderResults(string $term, Request $request, SalesChannelContext $context, bool $light = false): Response
     {
         $salesChannelId = $context->getSalesChannelId();
         $page = max(1, min(50, (int) $request->query->get('p', 1)));
@@ -280,7 +310,7 @@ class InstantSearchController extends StorefrontController
 
         // Keine Treffer: eigener Text und Produktempfehlungen (nicht bei „Nur exakte Teilenummer“)
         $recommendations = new ProductCollection();
-        if ($total === 0 && !$exactNumber && $redirect === null && $this->config->get('NovaSearch.config.noResultsProducts', $salesChannelId) !== false) {
+        if ($total === 0 && !$light && !$exactNumber && $redirect === null && $this->config->get('NovaSearch.config.noResultsProducts', $salesChannelId) !== false) {
             $recommendations = $this->highlights($context, 12, true);
         }
 
@@ -288,11 +318,18 @@ class InstantSearchController extends StorefrontController
         // in Schwestershops mit dem ursprünglichen Begriff nachsehen – nicht, wenn nur die Filter alles ausschließen
         $filterCount = \count($manufacturerIds) + \count($propertyIds) + ($minPrice !== null || $maxPrice !== null ? 1 : 0);
         $partners = [];
-        if (($total === 0 || $rewrite instanceof ArrayStruct) && !$exactNumber && $filterCount === 0 && $redirect === null) {
+        if (($total === 0 || $rewrite instanceof ArrayStruct) && !$light && !$exactNumber && $filterCount === 0 && $redirect === null) {
             $partnerIds = $this->idConfig('NovaSearch.config.partnerSalesChannels', $salesChannelId);
             if ($partnerIds !== []) {
                 $partners = $this->partnerSearch->search($term, $context, $partnerIds);
             }
+        }
+
+        // Echte 0 Treffer (ohne Filter, Umschreibung, Weiterleitung) kurz merken – der Beacon des
+        // Suchfensters darf den fertigen Begriff dann für die Claude-Auswertung vormerken
+        if ($total === 0 && $result !== null && !$light && !($rewrite instanceof ArrayStruct) && !$exactNumber && $filterCount === 0
+            && $redirect === null && !SearchCountGuard::isBot($request)) {
+            $this->zeroResults?->mark($salesChannelId, $term);
         }
 
         // „Teil anfragen“ – Kontaktseite mit vorausgefülltem Suchbegriff
@@ -358,7 +395,7 @@ class InstantSearchController extends StorefrontController
             'requestPartForm' => $total === 0 && $redirect === null && $this->config->get('NovaSearch.config.requestPartForm', $salesChannelId) !== false,
             'sortings' => $result?->getAvailableSortings(),
             'currentSorting' => $result?->getSorting(),
-            'categories' => !$exactNumber && $this->config->get('NovaSearch.config.showCategories', $salesChannelId) !== false
+            'categories' => !$exactNumber && !$light && $this->config->get('NovaSearch.config.showCategories', $salesChannelId) !== false
                 ? $this->findCategories($term, $context)
                 : new CategoryCollection(),
             'filterCount' => $filterCount,

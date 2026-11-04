@@ -1,3 +1,16 @@
+# 1.15.0
+- Security: **only terms that really have no results are sent to Claude.** Previously a request with a forged hit count of 0 ("bremse" although brake parts exist) could trigger a Claude rewrite that was then applied to every search for that term for 30 days. The background run now checks every term against the real product search right before asking Claude; terms with results are dropped. In addition, the search window beacon only queues a term when the server itself delivered it without results shortly before
+- Security: a failing product search during a background check no longer counts as "0 hits" – nothing is learned, deleted or disabled, the next run checks again (learned corrections, 30-day re-check, popular terms, ranking). Terms consisting only of stop words still count as "no results"
+- Performance/protection: **word parts** cache dictionary lookups for one hour in the object cache (per language and word part) and extend at most 4 words per search – long random input no longer triggers a series of expensive database queries. New words from the search index apply within an hour
+- Protection: uncached search window requests are limited per IP (1,200 per hour). Above that, visitors still get results, but only the plain search without word parts, sister shops, categories and recommendations – so a misconfigured proxy does not lock anyone out
+- Security: **IPv6 addresses count per /64 network** – all "per IP" limits and de-duplications could previously be bypassed by rotating addresses within one's own network. Concurrent requests are counted exactly using Shopware's lock component; only a hash is stored in the cache and lock files
+- Security: the search result page now counts searches with the same per-IP and per-sales-channel limits as the search window
+- Feedback: at most 300 per sales channel and hour (previously 1,000) and at most 10 texts per IP and day – further ratings count without text
+- "Request a part": requests from other websites are rejected (`Sec-Fetch-Site`), limit per IPv6 /64; the hidden spam field is no longer called "website", so browser autofill no longer fills it and swallows real requests
+- README: new section **Abuse protection** explaining `TRUSTED_PROXIES` – behind a proxy or CDN without it all visitors share one budget, with a too broad value (`0.0.0.0/0`) anyone can pick their own IP
+- Development: unit tests for the pure logic (`php phpunit.phar`, no Shopware needed)
+- Intentionally unchanged: the admin report "Zero results" still uses the hit count reported by the browser (affects statistics and CSV only, no longer Claude); redirects to other domains stay allowed (requires "edit settings"); cookie-based purchase attribution only affects verified products
+
 # 1.14.1
 - German storefront texts of the search layer now consistently use the formal „Sie“
 

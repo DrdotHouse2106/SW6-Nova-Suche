@@ -1,3 +1,16 @@
+# 1.15.0
+- Sicherheit: **Claude bekommt nur noch Begriffe, die wirklich keine Treffer haben.** Bisher konnte ein Aufruf mit erfundener Trefferzahl 0 („bremse“, obwohl es Bremsenteile gibt) eine Claude-Umschreibung auslösen, die danach 30 Tage lang auf jede Suche nach dem Begriff angewendet wurde. Jetzt prüft der Hintergrundlauf jeden Begriff unmittelbar vor der Anfrage an Claude gegen die echte Produktsuche; Begriffe mit Treffern scheiden aus. Zusätzlich merkt der Beacon des Suchfensters einen Begriff nur noch vor, wenn der Server ihn kurz vorher selbst ohne Treffer ausgeliefert hat
+- Sicherheit: Ist die Produktsuche bei einer Hintergrundprüfung gestört, gilt das nicht mehr als „0 Treffer“ – es wird nichts gelernt, gelöscht oder deaktiviert, der nächste Lauf prüft erneut (gelernte Korrekturen, 30-Tage-Prüfung, beliebte Begriffe, Ranking). Begriffe, die nur aus Stoppwörtern bestehen, zählen weiterhin als „keine Treffer“
+- Leistung/Schutz: **Wortteile** halten die Abfragen im Suchwort-Verzeichnis eine Stunde im Objekt-Cache (je Sprache und Wortteil) und erweitern höchstens 4 Wörter je Suche – lange Zufallseingaben lösen keine Serie teurer Datenbank-Abfragen mehr aus. Neue Wörter aus dem Suchindex wirken spätestens nach einer Stunde
+- Schutz: Ungecachte Anfragen an das Suchfenster sind je IP begrenzt (1200 je Stunde). Darüber gibt es weiter Treffer, aber nur die einfache Suche ohne Wortteile, Schwestershops, Kategorien und Empfehlungen – so sperrt auch ein falsch eingerichteter Proxy keine Besucher aus
+- Sicherheit: **IPv6-Adressen zählen je /64-Netz** – alle Grenzen und Entdopplungen „je IP“ ließen sich bisher mit wechselnden Adressen aus dem eigenen Netz umgehen. Gleichzeitige Anfragen werden mit Shopwares Lock-Komponente exakt gezählt; im Cache und in Lock-Dateien steht nur ein Hash
+- Sicherheit: Die Suchergebnisseite zählt Suchen jetzt mit denselben Grenzen je IP und Verkaufskanal wie das Suchfenster
+- Rückmeldungen: höchstens 300 je Verkaufskanal und Stunde (bisher 1000) und Texte höchstens 10 je IP und Tag – weitere Bewertungen zählen, aber ohne Text
+- „Teil anfragen“: Anfragen von fremden Websites werden abgelehnt (`Sec-Fetch-Site`), Limit je IPv6-/64-Netz; das versteckte Spam-Feld heißt nicht mehr „website“, damit das Autofill des Browsers es nicht befüllt und echte Anfragen verschluckt
+- README: neuer Abschnitt **Missbrauchsschutz** mit Hinweis auf `TRUSTED_PROXIES` – hinter einem Proxy oder CDN ohne diese Einstellung teilen sich alle Besucher ein Budget, mit zu weiter Einstellung (`0.0.0.0/0`) kann jeder seine IP frei wählen
+- Entwicklung: Unit-Tests für die reine Logik (`php phpunit.phar`, ohne Shopware)
+- Bewusst unverändert: Die Admin-Auswertung „Ohne Treffer“ zählt weiter die vom Browser gemeldete Trefferzahl (wirkt nur in Statistik und CSV, nicht mehr auf Claude); Weiterleitungen auf fremde Domains bleiben erlaubt (nur mit Berechtigung „Einstellungen bearbeiten“); die Kaufzuordnung per Cookie wirkt nur noch auf geprüfte Produkte
+
 # 1.14.1
 - Suchfenster spricht Besucher jetzt durchgehend mit „Sie“ an („Was suchen Sie?“, Hinweis bei 0 Treffern)
 

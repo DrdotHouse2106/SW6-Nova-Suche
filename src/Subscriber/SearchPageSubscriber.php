@@ -17,7 +17,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Suchergebnisseite (Enter im Suchfeld):
- *  - zählt die Suche (die Seite wird nicht HTTP-gecacht) – ohne Bots, je Begriff und Sitzung einmal in 30 Minuten
+ *  - zählt die Suche (die Seite wird nicht HTTP-gecacht) – ohne Bots, je Begriff und Sitzung einmal in 30 Minuten,
+ *    mit derselben Grenze je IP und Verkaufskanal wie die Ereignisse aus dem Suchfenster
  *  - merkt Begriffe ohne Treffer für die Claude-Auswertung vor (keine Bots, mit Mengenbegrenzung)
  *  - optional: wertet einen neuen Begriff sofort aus (kurzer Timeout) und zeigt direkt passende Treffer –
  *    höchstens wenige Male je Client-IP und Stunde, damit Zufallsbegriffe keine PHP-Prozesse binden
@@ -64,8 +65,10 @@ class SearchPageSubscriber implements EventSubscriberInterface
         $rewritten = $listing->getCriteria()->hasExtension(LearningProductSearchBuilder::EXTENSION);
 
         try {
+            // Gezählt wie die Ereignisse aus dem Suchfenster: mit Grenze je IP und Verkaufskanal
             if ($this->config->get('NovaSearch.config.learningActive', $salesChannelId) !== false
-                && SearchCountGuard::shouldCount($request, $term)) {
+                && SearchCountGuard::shouldCount($request, $term)
+                && $this->limiter?->allow(TrafficLimiter::TRACK, $salesChannelId, 1, $request) === true) {
                 $this->statistics->recordSearch($salesChannelId, $term, $listing->getTotal());
             }
 

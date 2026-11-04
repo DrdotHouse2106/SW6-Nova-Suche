@@ -4,6 +4,7 @@ namespace Nova\Search\Search;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Product\SearchKeyword\ProductSearchTermInterpreterInterface;
 use Shopware\Core\Framework\Api\Context\SalesChannelApiSource;
@@ -15,6 +16,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\SearchTerm;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\TokenizerInterface;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -30,17 +32,23 @@ use Symfony\Contracts\Service\ResetInterface;
  *    wie „vergas“ + „ersatz“.
  *
  * Teilwort-Treffer zählen weniger als echte Treffer, die Reihenfolge bleibt also erhalten.
+ *
+ * Last: Die Abfragen im Suchwort-Verzeichnis (LIKE '%…%') werden je Sprache und Wortteil eine Stunde im
+ * Objekt-Cache gehalten (neue Wörter aus dem Suchindex wirken also spätestens nach einer Stunde), und je
+ * Suche werden höchstens WordParts::MAX_EXTENDED_TOKENS Wörter erweitert. Setzt der Aufrufer am Request
+ * das Attribut SKIP (Suchfenster über der Grenze je IP), bleibt die Suche unverändert.
  */
 class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, ResetInterface
 {
-    private const MIN_INFIX_LENGTH = 5;
-    private const MIN_SPLIT_LENGTH = 8;
-    private const MIN_SPLIT_PART = 4;
+    /** Request-Attribut: Wortteile für diese Anfrage auslassen */
+    public const SKIP = 'nova-search-skip-word-parts';
+
     private const MAX_KEYWORDS = 60;
     private const MAX_SPLIT_KEYWORDS = 300;
     private const ENDINGS = ['', 's', 'es', 'e', 'en', 'n'];
     private const MAX_SCORED = 10;
     private const SCORE = 0.3;
+    private const CACHE_SECONDS = 3600;
 
     /** @var array<string, list<string>> */
     private array $infixCache = [];
@@ -53,6 +61,8 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
         private readonly SystemConfigService $config,
         private readonly LoggerInterface $logger,
         private readonly ?SearchConfigLoader $configLoader = null,
+        private readonly ?CacheItemPoolInterface $cache = null,
+        private readonly ?RequestStack $requestStack = null,
     ) {
     }
 
@@ -63,7 +73,8 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
         try {
             $source = $context->getSource();
             $salesChannelId = $source instanceof SalesChannelApiSource ? $source->getSalesChannelId() : null;
-            if ($this->config->get('NovaSearch.config.wordParts', $salesChannelId) === false) {
+            if ($this->config->get('NovaSearch.config.wordParts', $salesChannelId) === false
+                || $this->requestStack?->getMainRequest()?->attributes->getBoolean(self::SKIP) === true) {
                 return $pattern;
             }
 
@@ -82,7 +93,7 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
 
     private function extend(SearchPattern $pattern, string $word, Context $context): SearchPattern
     {
-        $tokens = array_values($this->tokenFilter->filter($this->tokenize($word, $context), $context));
+        $tokens = self::strings($this->tokenFilter->filter($this->tokenize($word, $context), $context));
         $tokenTerms = $pattern->getTokenTerms();
 
         // Nur wenn die Wörter genau zu Shopwares Wortgruppen passen – sonst lieber nichts ändern
@@ -95,10 +106,17 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
         $result = [];
         $added = [];
         $changed = false;
+        $extended = 0;
 
         foreach ($tokens as $index => $token) {
-            $token = (string) $token;
-            $keywords = $tokenTerms[$index];
+            $keywords = $tokenTerms[$index] ?? [];
+
+            // Jedes erweiterte Wort kostet Abfragen – lange Zufallseingaben nicht beliebig teuer werden lassen
+            if ($extended >= WordParts::MAX_EXTENDED_TOKENS || !WordParts::eligible($token)) {
+                $result[] = $keywords;
+                continue;
+            }
+            ++$extended;
 
             if ($keywords === [] && ($parts = $this->split($token, $languageId)) !== null) {
                 // Zusammengesetztes Wort ohne Treffer: beide Teile müssen passen
@@ -111,7 +129,7 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
                 continue;
             }
 
-            $infix = $this->eligible($token) ? $this->containing($token, $languageId) : [];
+            $infix = $this->containing($token, $languageId);
             $new = array_values(array_diff($infix, $keywords));
             if ($new !== []) {
                 $keywords = array_values(array_unique(array_merge($keywords, $new)));
@@ -125,14 +143,14 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
             return $pattern;
         }
 
-        $extended = new SearchPattern($pattern->getOriginal());
-        $extended->setBooleanClause($pattern->getBooleanClause() === SearchPattern::BOOLEAN_CLAUSE_AND);
-        $extended->setTokenTerms($result);
+        $extendedPattern = new SearchPattern($pattern->getOriginal());
+        $extendedPattern->setBooleanClause($pattern->getBooleanClause() === SearchPattern::BOOLEAN_CLAUSE_AND);
+        $extendedPattern->setTokenTerms($result);
 
         $known = [];
         foreach ($pattern->getTerms() as $term) {
             $known[$term->getTerm()] = true;
-            $extended->addTerm($term);
+            $extendedPattern->addTerm($term);
         }
 
         // Kürzeste Wörter zuerst: „doppelvergasers“ ist näher an „vergaser“ als „vergaserüberholsatzes“
@@ -143,13 +161,13 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
             if (isset($known[$keyword])) {
                 continue;
             }
-            $extended->addTerm(new SearchTerm($keyword, self::SCORE));
+            $extendedPattern->addTerm(new SearchTerm($keyword, self::SCORE));
             if (++$scored >= self::MAX_SCORED) {
                 break;
             }
         }
 
-        return $extended;
+        return $extendedPattern;
     }
 
     /**
@@ -164,12 +182,24 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
         }
 
         /** @phpstan-ignore arguments.count (zweiter Parameter ab Shopware 6.6 vorhanden, in der Signatur noch auskommentiert) */
-        return array_values($this->tokenizer->tokenize($word, $minLength));
+        return self::strings($this->tokenizer->tokenize($word, $minLength));
     }
 
-    private function eligible(string $token): bool
+    /**
+     * Fortlaufend nummerierte Zeichenketten – Token-Filter anderer Erweiterungen behalten mitunter die Schlüssel.
+     *
+     * @param array<mixed> $values
+     *
+     * @return list<string>
+     */
+    private static function strings(array $values): array
     {
-        return mb_strlen($token) >= self::MIN_INFIX_LENGTH && preg_match('/\d/', $token) !== 1;
+        $strings = [];
+        foreach ($values as $value) {
+            $strings[] = \is_scalar($value) ? (string) $value : '';
+        }
+
+        return $strings;
     }
 
     /**
@@ -180,37 +210,26 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
      */
     private function split(string $token, string $languageId): ?array
     {
-        $length = mb_strlen($token);
-        if ($length < self::MIN_SPLIT_LENGTH || preg_match('/\d/', $token) === 1) {
+        $candidates = WordParts::splitCandidates($token);
+        if ($candidates === []) {
             return null;
         }
 
-        /** @var array<string, array{string, string}> $candidates */
-        $candidates = [];
-        for ($i = $length - self::MIN_SPLIT_PART; $i >= self::MIN_SPLIT_PART; --$i) {
-            $head = mb_substr($token, 0, $i);
-            $tail = mb_substr($token, $i);
-            $candidates[$head] ??= [$head, $tail];
-            if (str_ends_with($head, 's') && mb_strlen($head) > self::MIN_SPLIT_PART) {
-                $candidates[mb_substr($head, 0, -1)] ??= [mb_substr($head, 0, -1), $tail];
-            }
-        }
-
-        $known = $this->connection->fetchFirstColumn(
+        $known = $this->cached($languageId . '|split|' . $token, fn (): array => $this->connection->fetchFirstColumn(
             'SELECT `keyword` FROM `product_keyword_dictionary` WHERE `language_id` = :language AND `keyword` IN (:keywords)',
-            ['language' => Uuid::fromHexToBytes($languageId), 'keywords' => array_keys($candidates)],
+            ['language' => Uuid::fromHexToBytes($languageId), 'keywords' => array_map('strval', array_keys($candidates))],
             ['keywords' => ArrayParameterType::STRING]
-        );
+        ));
         if ($known === []) {
             return null;
         }
 
-        usort($known, static fn ($a, $b): int => mb_strlen((string) $b) <=> mb_strlen((string) $a));
+        usort($known, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
         foreach ($known as $head) {
-            [$head, $tail] = $candidates[(string) $head] ?? [null, null];
-            if ($head === null) {
+            if (!isset($candidates[$head])) {
                 continue;
             }
+            [$head, $tail] = $candidates[$head];
 
             // Der Rest steht am Wortende („komplettsatz“, „dichtungssatz“), nicht mittendrin („ersatzteil“)
             $tailKeywords = $this->endingWith($tail, $languageId);
@@ -231,28 +250,23 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
      */
     private function endingWith(string $part, string $languageId): array
     {
-        $key = $languageId . '|end|' . $part;
-        if (isset($this->infixCache[$key])) {
-            return $this->infixCache[$key];
-        }
+        return $this->cached($languageId . '|end|' . $part, function () use ($part, $languageId): array {
+            $escaped = addcslashes($part, '%_\\');
+            $patterns = [];
+            $params = ['language' => Uuid::fromHexToBytes($languageId)];
+            foreach (self::ENDINGS as $n => $ending) {
+                $patterns[] = '`keyword` LIKE :p' . $n;
+                $params['p' . $n] = '%' . $escaped . $ending;
+            }
 
-        $escaped = addcslashes($part, '%_\\');
-        $patterns = [];
-        $params = ['language' => Uuid::fromHexToBytes($languageId)];
-        foreach (self::ENDINGS as $n => $ending) {
-            $patterns[] = '`keyword` LIKE :p' . $n;
-            $params['p' . $n] = '%' . $escaped . $ending;
-        }
-
-        $keywords = $this->connection->fetchFirstColumn(
-            'SELECT `keyword` FROM `product_keyword_dictionary`
-             WHERE `language_id` = :language AND (' . implode(' OR ', $patterns) . ')
-             ORDER BY CHAR_LENGTH(`keyword`), `keyword`
-             LIMIT ' . self::MAX_SPLIT_KEYWORDS,
-            $params
-        );
-
-        return $this->remember($key, $keywords);
+            return $this->connection->fetchFirstColumn(
+                'SELECT `keyword` FROM `product_keyword_dictionary`
+                 WHERE `language_id` = :language AND (' . implode(' OR ', $patterns) . ')
+                 ORDER BY CHAR_LENGTH(`keyword`), `keyword`
+                 LIMIT ' . self::MAX_SPLIT_KEYWORDS,
+                $params
+            );
+        });
     }
 
     /**
@@ -262,20 +276,55 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
      */
     private function containing(string $part, string $languageId, int $limit = self::MAX_KEYWORDS): array
     {
-        $key = $languageId . '|' . $limit . '|' . $part;
-        if (isset($this->infixCache[$key])) {
-            return $this->infixCache[$key];
-        }
-
-        $keywords = $this->connection->fetchFirstColumn(
+        return $this->cached($languageId . '|' . $limit . '|' . $part, fn (): array => $this->connection->fetchFirstColumn(
             'SELECT `keyword` FROM `product_keyword_dictionary`
              WHERE `language_id` = :language AND `keyword` LIKE :pattern
              ORDER BY CHAR_LENGTH(`keyword`), `keyword`
              LIMIT ' . $limit,
             ['language' => Uuid::fromHexToBytes($languageId), 'pattern' => '%' . addcslashes($part, '%_\\') . '%']
-        );
+        ));
+    }
 
-        return $this->remember($key, $keywords);
+    /**
+     * Ergebnis einer Wörterbuch-Abfrage: erst aus dem Request-Speicher, dann aus dem Objekt-Cache
+     * (eine Stunde), sonst frisch geladen. Ein gestörter Cache verhindert die Suche nicht.
+     *
+     * @param callable(): list<mixed> $load
+     *
+     * @return list<string>
+     */
+    private function cached(string $key, callable $load): array
+    {
+        if (isset($this->infixCache[$key])) {
+            return $this->infixCache[$key];
+        }
+
+        $item = null;
+        if ($this->cache !== null) {
+            try {
+                $item = $this->cache->getItem(WordParts::cacheKey($key));
+                $value = $item->get();
+                if ($item->isHit() && \is_array($value)) {
+                    return $this->remember($key, array_values($value));
+                }
+            } catch (\Throwable) {
+                $item = null;
+            }
+        }
+
+        $keywords = $this->remember($key, $load());
+
+        if ($item !== null && $this->cache !== null) {
+            try {
+                $item->set($keywords);
+                $item->expiresAfter(self::CACHE_SECONDS);
+                $this->cache->save($item);
+            } catch (\Throwable) {
+                // nur Zwischenspeicher
+            }
+        }
+
+        return $keywords;
     }
 
     /**
@@ -289,6 +338,6 @@ class WordPartTermInterpreter implements ProductSearchTermInterpreterInterface, 
             $this->infixCache = [];
         }
 
-        return $this->infixCache[$key] = array_values(array_map('strval', $keywords));
+        return $this->infixCache[$key] = array_map(static fn (mixed $keyword): string => \is_scalar($keyword) ? (string) $keyword : '', $keywords);
     }
 }

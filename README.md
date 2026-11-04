@@ -60,11 +60,12 @@ Die Suche **lernt dabei mit**: Was Kunden suchen, anklicken, in den Warenkorb le
 
 ## Claude: Suchbegriffe ohne Treffer dauerhaft verbessern
 
-1. Ein Begriff liefert keine Treffer → er wird vorgemerkt.
-2. Stündlich (Scheduled Task) bzw. sofort per `bin/console nova-search:rewrite` gehen die offenen Begriffe **gebündelt** (bis 30 je Anfrage) an Claude (Modell `claude-haiku-5-5`). Claude kennt dabei Shopname, Sprache sowie Kategorie- und Markennamen des Verkaufskanals und schlägt je Begriff bis zu drei Alternativen vor (Tippfehler, Spitznamen, Füllwörter).
-3. **Jede Alternative wird gegen die echte Produktsuche geprüft** – gespeichert wird nur, was tatsächlich Treffer liefert.
-4. Ab dann sucht der Shop bei diesem Begriff automatisch mit der Umschreibung – im Suchfenster, auf der Suchergebnisseite und in den Vorschlägen – und zeigt den Hinweis „Ergebnisse für „bremsbelag 2cv““.
-5. Nach 30 Tagen wird nachgeprüft: Findet der ursprüngliche Begriff inzwischen selbst etwas (neues Sortiment), wird die Umschreibung entfernt. Begriffe, für die es damals keine Lösung gab, bekommen eine neue Chance.
+1. Ein Begriff liefert keine Treffer → er wird vorgemerkt. Vorgemerkt wird nur, was der Server selbst ohne Treffer ausgeliefert hat (Suchergebnisseite, Store-API-Suche, Suchfenster) – eine Trefferzahl, die nur der Browser meldet, reicht nicht.
+2. **Vor der Anfrage an Claude** prüft der Hintergrundlauf jeden Begriff noch einmal gegen die echte Produktsuche (seit 1.15.0). Findet der Begriff selbst etwas, geht er nicht an Claude.
+3. Stündlich (Scheduled Task) bzw. sofort per `bin/console nova-search:rewrite` gehen die offenen Begriffe **gebündelt** (bis 30 je Anfrage) an Claude (Modell `claude-haiku-5-5`). Claude kennt dabei Shopname, Sprache sowie Kategorie- und Markennamen des Verkaufskanals und schlägt je Begriff bis zu drei Alternativen vor (Tippfehler, Spitznamen, Füllwörter).
+4. **Jede Alternative wird gegen die echte Produktsuche geprüft** – gespeichert wird nur, was tatsächlich Treffer liefert.
+5. Ab dann sucht der Shop bei diesem Begriff automatisch mit der Umschreibung – im Suchfenster, auf der Suchergebnisseite und in den Vorschlägen – und zeigt den Hinweis „Ergebnisse für „bremsbelag 2cv““.
+6. Nach 30 Tagen wird nachgeprüft: Findet der ursprüngliche Begriff inzwischen selbst etwas (neues Sortiment), wird die Umschreibung entfernt. Begriffe, für die es damals keine Lösung gab, bekommen eine neue Chance.
 
 **Nachhaltig:** Jeder Begriff wird nur **einmal** an Claude geschickt – nicht bei jeder Suche. Die Verbesserung bleibt dauerhaft in der Datenbank und wirkt ohne weitere Anfragen.
 
@@ -165,7 +166,7 @@ POST /store-api/nova-search/feedback
 | `rating` | ja | `up` (gefällt) oder `down` (gefällt nicht) |
 | `text` | nein | Nur bei `down`: „Was haben Sie gesucht?“, max. 200 Zeichen (Steuerzeichen werden entfernt, Längeres abgeschnitten) |
 
-Antwort immer `204`. Je Kontext-Token, Begriff und Tag zählt **eine** Bewertung (zusätzlich je Client-IP); einen Text kann die App einmal nachreichen, indem sie denselben Aufruf mit `rating: "down"` und `text` wiederholt. Grenzen: 30 Rückmeldungen je IP und Stunde, 1000 je Verkaufskanal und Stunde. Die Trefferzahl ermittelt der Server selbst. Gespeichert wird mit der Quelle „App“ – ohne Token, Kunden- oder Bestelldaten. Ist „Gefällt Ihnen das Suchergebnis? anzeigen“ im Verkaufskanal aus, wird nichts gespeichert.
+Antwort immer `204`. Je Kontext-Token, Begriff und Tag zählt **eine** Bewertung (zusätzlich je Client-IP); einen Text kann die App einmal nachreichen, indem sie denselben Aufruf mit `rating: "down"` und `text` wiederholt. Grenzen: 30 Rückmeldungen je IP und Stunde, 300 je Verkaufskanal und Stunde, Texte höchstens 10 je IP und Tag. Die Trefferzahl ermittelt der Server selbst. Gespeichert wird mit der Quelle „App“ – ohne Token, Kunden- oder Bestelldaten. Ist „Gefällt Ihnen das Suchergebnis? anzeigen“ im Verkaufskanal aus, wird nichts gespeichert.
 
 ### Shopwares eigene Suche
 
@@ -203,7 +204,7 @@ Die Knöpfe haben Beschriftungen für Screenreader, die Rückmeldung wird angesa
 
 **Gespeichert** (Tabelle `nova_search_feedback`): Verkaufskanal, normalisierter Suchbegriff, Trefferzahl (vom Server per Produktsuche ermittelt, nicht vom Browser übernommen), Bewertung, optionaler Text, Quelle (Suchfenster, Ergebnisseite, App) und Datum. **Keine** IP-Adressen, Kunden- oder Sitzungsdaten. Löschung nach 365 Tagen.
 
-**Schutz vor Missbrauch** (wie bei den Lernsignalen): nur mit bestehender Shop-Sitzung, von derselben Website und ohne Bots, nur als JSON (ein fremdes Formular kann das nicht senden), 30 Rückmeldungen je IP und Stunde, 1000 je Verkaufskanal und Stunde, **eine Bewertung je Besucher, Begriff und Tag** (Merker als Hash von Sitzung bzw. IP im Objekt-Cache, nicht in der Datenbank), Text nur zur eigenen „Daumen runter“-Bewertung und nur einmal. Der Text wird getrimmt, Steuer- und unsichtbare Zeichen werden entfernt, nach 200 Zeichen abgeschnitten und überall als reiner Text ausgegeben.
+**Schutz vor Missbrauch** (wie bei den Lernsignalen): nur mit bestehender Shop-Sitzung, von derselben Website und ohne Bots, nur als JSON (ein fremdes Formular kann das nicht senden), 30 Rückmeldungen je IP und Stunde, 300 je Verkaufskanal und Stunde, Texte höchstens 10 je IP und Tag (weitere Bewertungen zählen ohne Text), **eine Bewertung je Besucher, Begriff und Tag** (Merker als Hash von Sitzung bzw. IP im Objekt-Cache, nicht in der Datenbank), Text nur zur eigenen „Daumen runter“-Bewertung und nur einmal. Der Text wird getrimmt, Steuer- und unsichtbare Zeichen werden entfernt, nach 200 Zeichen abgeschnitten und überall als reiner Text ausgegeben.
 
 **Auswertung:** *Erweiterungen → Nova Suche → Auswertung → Rückmeldungen* (Zeitraum und Verkaufskanal wie die übrigen Tabellen, CSV-Export `rueckmeldungen.csv`, Löschen einzelner Einträge mit der Berechtigung *Einstellungen bearbeiten*).
 
@@ -243,6 +244,7 @@ Seit 1.13.0 ergänzt die Nova Suche (Schalter *Konfigurieren → Wortteile*, Sta
 - **Wörter ab 5 Buchstaben** finden auch Wörter, die sie **mittendrin** enthalten: „vergaser“ → „Doppelvergasers“, „Einzelvergasers“. Diese Treffer stehen hinter den genauen.
 - **Zusammengesetzte Suchbegriffe ohne Treffer** werden in zwei Teile zerlegt, die beide passen müssen: „vergasersatz“ → „vergaser“ + Wörter auf „…satz“ (Komplettsatz, Dichtungssatz). Der erste Teil muss ein Wort aus dem Shop sein, der zweite steht am Wortende – so entsteht kein Zufallstreffer wie „vergas“ + „ersatz“. Ein Fugen-s wird erkannt („überholungssatz“ → „überholung“ + „satz“).
 - Synonyme nutzen das ebenfalls.
+- **Last:** Die Abfragen im Suchwort-Verzeichnis werden je Sprache und Wortteil eine Stunde im Objekt-Cache gehalten (neue Wörter aus dem Suchindex wirken also spätestens nach einer Stunde), und je Suche werden höchstens 4 Wörter erweitert. Stellt eine IP sehr viele ungecachte Anfragen an das Suchfenster (über 1200 je Stunde), bekommt sie die einfache Suche ohne Wortteile, Schwestershops, Kategorien und Empfehlungen.
 
 **Was Wortteile nicht leisten:** Unterschiedliche Wörter für dasselbe („Überholsatz“ ↔ „Überholung“, „Dichtsatz“ ↔ „Dichtungssatz“) – dafür sind **Synonyme** da (siehe unten). Hat ein Suchwort selbst Treffer („überholsatz“ findet „Bremsenüberholsatz“), wird es nicht zerlegt.
 
@@ -350,9 +352,26 @@ Die Dateien sind UTF-8 mit BOM (Umlaute in Excel korrekt). Suchbegriffe, die Exc
 - **Cookies/Speicher im Browser nur mit Zustimmung** (Shopware-Cookie-Banner):
   - *Statistik* → „Suche: Käufe Suchbegriffen zuordnen“: Cookie `nova-search-attr` merkt sich bis zu 2 Tage, welches Produkt über welchen Begriff gefunden wurde; wird nach der Bestellung gelöscht. Ohne Zustimmung werden nur anonyme Suchen und Klicks gezählt.
   - *Komfortfunktionen* → „Zuletzt angesehene Produkte merken“: Liste im localStorage (`nova-recently-viewed`), verlässt nie den Browser. Die Zustimmungspflicht ist abschaltbar.
-- **Missbrauchsschutz:** Signale aus dem Suchfenster nur mit bestehender Shop-Sitzung von derselben Website und ohne Bots; max. 20 Ereignisse pro Aufruf, 300 pro Sitzung und Stunde, 600 je IP und Stunde und eine Obergrenze je Verkaufskanal; Klicks, Warenkorb und Korrekturen je IP und Tag einmal; nur existierende Produkte; öffentlich wirksam (beliebte Begriffe, Ranking, Highlights, gelernte Korrekturen) wird nur, was die stündliche Prüfung gegen die echte Suche bestätigt. Neue Begriffe für Claude und Schwestershop-Suchen sind je IP begrenzt.
+- **Missbrauchsschutz:** siehe nächster Abschnitt.
 - **Rückmeldung zum Suchergebnis (1.14.0):** gespeichert werden Verkaufskanal, Suchbegriff, Trefferzahl, Bewertung, Quelle, Datum und der freiwillige Text – ohne IP, Kunden- oder Sitzungsbezug; gelöscht nach 365 Tagen. Der Text ist eine freie Eingabe: Schreibt jemand Name, E-Mail-Adresse oder Telefonnummer hinein, wird das so gespeichert und im Admin angezeigt. Das gehört in die Datenschutzerklärung (Vorschlag: „Sie können das Suchergebnis freiwillig bewerten und einen kurzen Text senden. Gespeichert werden nur Suchbegriff, Bewertung und Text, ohne IP-Adresse und ohne Bezug zu Ihrem Kundenkonto; gelöscht wird nach 12 Monaten.“). Einträge mit personenbezogenen Daten lassen sich in der Auswertung einzeln löschen. Abschaltbar je Verkaufskanal.
 - Einträge, die ein Jahr lang nicht vorkamen, werden automatisch gelöscht; beobachtete Korrekturen und nie gelöste Begriffe nach 180 Tagen. Beim Deinstallieren ohne „Daten behalten“ werden alle Tabellen entfernt.
+
+## Missbrauchsschutz
+
+- Signale aus dem Suchfenster nur mit bestehender Shop-Sitzung von derselben Website und ohne Bots; max. 20 Ereignisse pro Aufruf, 300 pro Sitzung und Stunde, 600 je IP und Stunde und eine Obergrenze je Verkaufskanal. Die Suchergebnisseite zählt Suchen mit denselben Grenzen.
+- Klicks, Warenkorb und Korrekturen je IP und Tag einmal; nur existierende Produkte. Öffentlich wirksam (beliebte Begriffe, Ranking, Highlights, gelernte Korrekturen) wird nur, was die stündliche Prüfung gegen die echte Suche bestätigt. Ist die Suche bei der Prüfung gestört, wird nichts gespeichert oder gelöscht – der nächste Lauf prüft erneut.
+- Claude bekommt nur Begriffe, die serverseitig keine Treffer haben (Prüfung unmittelbar vor der Anfrage). Neue Begriffe für Claude, Schwestershop-Suchen, Rückmeldungen und Teileanfragen sind je IP begrenzt; ungecachte Anfragen an das Suchfenster ebenfalls (darüber gibt es nur die einfache Suche).
+- **IPv6:** Alle Grenzen und Entdopplungen „je IP“ zählen bei IPv6 je **/64-Netz** – so viele Adressen hat jeder Anschluss mindestens, ein Angreifer bekommt mit einer neuen Adresse aus seinem Netz kein frisches Budget. IPv4 zählt je Adresse.
+- Gleichzeitige Anfragen werden mit Shopwares Lock-Komponente (`LOCK_DSN`, Standard `flock`) exakt gezählt.
+
+### Wichtig hinter Proxy, Load-Balancer oder CDN: `TRUSTED_PROXIES`
+
+Alle Grenzen „je IP“ hängen an der Client-IP, die Shopware erkennt (`Request::getClientIp()`):
+
+- **Ohne Proxy** (PHP sieht direkt die Besucher-IP): nichts zu tun.
+- **Hinter einem Reverse-Proxy oder CDN** (z. B. nginx vor Apache, Varnish, Cloudflare, Load-Balancer) sieht PHP ohne Einstellung nur die IP des Proxys. Dann teilen sich **alle Besucher ein Budget**: Lernsignale fallen still weg, Rückmeldungen und Claude-Vormerkungen sind für den ganzen Shop nach wenigen Aufrufen erschöpft. Lösung: in der `.env` des Shops `TRUSTED_PROXIES=<IP oder Netz des Proxys>` eintragen (z. B. `TRUSTED_PROXIES=127.0.0.1` für nginx→Apache auf demselben Server) – oder auf Webserver-Ebene `mod_remoteip` (Apache) bzw. `real_ip` (nginx) passend einrichten. Unter Plesk mit „nginx als Proxy für Apache“ ist `mod_remoteip` meist schon aktiv; prüfen lohnt trotzdem.
+- **Nie zu weit fassen:** `TRUSTED_PROXIES=0.0.0.0/0` oder `REMOTE_ADDR` (wie manche Anleitungen vorschlagen) vertraut jedem `X-Forwarded-For`-Header – dann kann jeder Besucher seine IP frei wählen und alle Grenzen „je IP“ umgehen. Nur die Adressen der eigenen Proxys eintragen.
+- **Prüfen:** Im Shopware-Log bzw. Zugriffslog des Webservers muss bei zwei verschiedenen Besuchern auch eine unterschiedliche Client-IP stehen – nicht bei allen dieselbe interne Adresse.
 
 ## Installation
 
@@ -411,6 +430,8 @@ Die Mindestlänge des Suchbegriffs kommt aus Shopwares Sucheinstellungen (*Einst
 - **Suchgewichtung anpassen:** *Einstellungen → Suche* (z. B. Produktnummer und Name höher gewichten)
 
 ## Entwicklung
+
+Unit-Tests der reinen Logik (ohne Shopware, PHPUnit 11): `php phpunit.phar` im Plugin-Verzeichnis.
 
 Innerhalb von Shopware: `bin/build-storefront.sh`. Ohne Shopware (nur das Storefront-JavaScript):
 

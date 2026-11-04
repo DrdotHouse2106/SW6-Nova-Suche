@@ -40,7 +40,12 @@ class SignalVerifier
         foreach ($this->statistics->termsToVerify(self::TERMS_PER_RUN) as $row) {
             try {
                 // Wie die Besucher es sehen: inklusive gespeicherter Umschreibung
-                $this->statistics->setVerifiedHits($row['sc'], $row['term'], $this->rewriteService->total($row['sc'], $row['term'], null, true));
+                $hits = $this->rewriteService->total($row['sc'], $row['term'], null, true);
+                if ($hits === null) {
+                    // Suche gestört: bisherigen Stand behalten, nächster Lauf prüft erneut
+                    continue;
+                }
+                $this->statistics->setVerifiedHits($row['sc'], $row['term'], $hits);
                 ++$count;
             } catch (\Throwable $e) {
                 $this->logger->warning('Nova Suche: Trefferprüfung fehlgeschlagen', ['exception' => $e]);
@@ -60,8 +65,11 @@ class SignalVerifier
                     new EqualsFilter('product.id', $row['productId']),
                     new EqualsFilter('product.parentId', $row['productId']),
                 ]));
-                $found = $this->rewriteService->total($row['sc'], $row['term'], $criteria, true) > 0;
-                $this->statistics->setProductVerified($row['sc'], $row['term'], $row['productId'], $found);
+                $hits = $this->rewriteService->total($row['sc'], $row['term'], $criteria, true);
+                if ($hits === null) {
+                    continue;
+                }
+                $this->statistics->setProductVerified($row['sc'], $row['term'], $row['productId'], $hits > 0);
                 ++$count;
             } catch (\Throwable $e) {
                 $this->logger->warning('Nova Suche: Produktprüfung fehlgeschlagen', ['exception' => $e]);

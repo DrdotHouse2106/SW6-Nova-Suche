@@ -2,6 +2,7 @@
 
 namespace Nova\Search\Controller;
 
+use Nova\Search\Service\TrafficLimiter;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Mail\Service\AbstractMailService;
@@ -17,7 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * „Teil anfragen“ direkt aus dem Suchfenster: E-Mail-Adresse oder Telefonnummer genügt, die Anfrage
  * geht per Mail an den Shop. Gespeichert wird nichts; gegen Spam helfen ein verstecktes Feld und
- * ein Limit pro IP-Adresse und Stunde.
+ * ein Limit pro IP-Adresse (IPv6: /64-Netz) und Stunde; Anfragen von fremden Websites werden abgelehnt.
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
 class PartRequestController extends StorefrontController
@@ -43,6 +44,12 @@ class PartRequestController extends StorefrontController
         $salesChannelId = $context->getSalesChannelId();
         if ($this->config->get('NovaSearch.config.requestPartForm', $salesChannelId) === false) {
             return $this->error('novaSearch.requestError', 404);
+        }
+
+        // Nur aus dem eigenen Shop (Browser senden Sec-Fetch-Site; fehlt der Header, greifen die übrigen Prüfungen)
+        $site = $request->headers->get('Sec-Fetch-Site');
+        if ($site !== null && !\in_array($site, ['same-origin', 'none'], true)) {
+            return $this->error('novaSearch.requestError', 403);
         }
 
         $data = self::validate($request->request->all(), $this->config->getBool('core.loginRegistration.requireDataProtectionCheckbox', $salesChannelId));
@@ -123,7 +130,8 @@ class PartRequestController extends StorefrontController
             ? mb_substr(trim(str_replace("\0", '', $input[$key])), 0, $max)
             : '';
 
-        if ($text('website', 200) !== '') {
+        // Verstecktes Feld (bis 1.14.1 „website“ – das füllte das Autofill mancher Browser aus)
+        if ($text('nova_hp_field', 200) !== '') {
             return 'spam';
         }
 
@@ -174,7 +182,7 @@ class PartRequestController extends StorefrontController
 
     private function withinLimit(Request $request): bool
     {
-        $key = 'nova_search_request_' . sha1((string) $request->getClientIp() . '|' . date('YmdH'));
+        $key = 'nova_search_request_' . sha1(TrafficLimiter::clientKey($request->getClientIp()) . '|' . date('YmdH'));
         $item = $this->cache->getItem($key);
         $count = $item->isHit() && \is_int($item->get()) ? $item->get() : 0;
         if ($count >= self::MAX_PER_HOUR) {
