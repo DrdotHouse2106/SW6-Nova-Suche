@@ -1,3 +1,6 @@
+# 1.17.1
+- “Customers also bought” is shown on the product page as **its own row below the regular cross-selling** instead of an additional tab. Regular cross-sellings stay unchanged in their tabs
+
 # 1.17.0
 - New: **“customers also bought”** from your own orders (settings card “Customers also bought”, default off). Once a day it is **precomputed** which products were bought together (cancelled orders excluded, variants counted on the main product) and a Shopware cross-selling with a fixed ID is created per product – the product page loads nothing extra. Configurable: title, period (default 36 months), minimum shared orders, maximum products, “never include” (e.g. deposit items). Compute now: `bin/console nova-search:also-bought`. Filtered by vehicle with Nova vehicle switcher 1.17.0 or later
 

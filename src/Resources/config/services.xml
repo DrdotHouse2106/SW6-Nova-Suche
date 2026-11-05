@@ -57,6 +57,10 @@
             <argument type="service" id="logger"/>
         </service>
 
+        <service id="Nova\Search\Subscriber\AlsoBoughtPageSubscriber">
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <service id="Nova\Search\ScheduledTask\AlsoBoughtTask">
             <tag name="shopware.scheduled.task"/>
         </service>

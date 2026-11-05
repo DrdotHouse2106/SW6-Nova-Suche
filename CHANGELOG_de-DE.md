@@ -1,3 +1,6 @@
+# 1.17.1
+- „Kunden kauften auch“ erscheint auf der Produktseite als **eigene Zeile unter dem festen Cross-Selling** statt als weiterer Reiter. Feste Cross-Sellings (Zubehör, passende Teile …) bleiben unverändert in ihren Reitern
+
 # 1.17.0
 - Neu: **„Kunden kauften auch“** aus den eigenen Bestellungen (Einstellungen → Karte „Kunden kauften auch“, Standard aus). Einmal täglich wird **vorab berechnet**, welche Artikel zusammen gekauft wurden (stornierte Bestellungen nicht, Varianten beim Hauptartikel), und je Artikel ein Shopware-Cross-Selling mit fester ID angelegt – die Produktseite lädt dadurch nichts zusätzlich nach. Einstellbar: Überschrift, Zeitraum (Standard 36 Monate), Mindestanzahl gemeinsamer Bestellungen, höchstens Artikel je Artikel, „Nie berücksichtigen“ (z. B. Pfand, Kaution). Sofort berechnen: `bin/console nova-search:also-bought`. Mit Nova Fahrzeugauswahl ab 1.17.0 nach Fahrzeug gefiltert
 
