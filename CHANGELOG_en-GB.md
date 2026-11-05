@@ -1,3 +1,6 @@
+# 1.17.0
+- New: **“customers also bought”** from your own orders (settings card “Customers also bought”, default off). Once a day it is **precomputed** which products were bought together (cancelled orders excluded, variants counted on the main product) and a Shopware cross-selling with a fixed ID is created per product – the product page loads nothing extra. Configurable: title, period (default 36 months), minimum shared orders, maximum products, “never include” (e.g. deposit items). Compute now: `bin/console nova-search:also-bought`. Filtered by vehicle with Nova vehicle switcher 1.17.0 or later
+
 # 1.16.0
 - New: **results for other models.** If a vehicle is selected in the vehicle switcher and the search window finds nothing for it, it searches again without the vehicle filter: “No results for “42003” for your vehicle “Acadiane” – there are 3 results for other models”, followed by these results and a link “Clear vehicle selection and show all results”. Recommendations and partner shops are skipped then. Requires Nova vehicle switcher 1.16.0 (without it nothing changes)
 - A zero-result term with an active vehicle filter is only queued for the Claude analysis if there are no results for other models either

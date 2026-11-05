@@ -410,6 +410,57 @@
     </card>
 
     <card>
+        <title>Customers also bought</title>
+        <title lang="de-DE">Kunden kauften auch</title>
+
+        <input-field type="bool">
+            <name>alsoBought</name>
+            <label>Create “customers also bought” from orders</label>
+            <label lang="de-DE">„Kunden kauften auch“ aus den Bestellungen erzeugen</label>
+            <helpText>Once a day (scheduled task “nova_search.also_bought”, or console “nova-search:also-bought”) the plugin counts which products were bought together and creates a cross-selling per product. Switching off removes these cross-sellings on the next run. Own cross-sellings stay untouched.</helpText>
+            <helpText lang="de-DE">Einmal täglich (geplante Aufgabe „nova_search.also_bought“, sofort per Konsole „nova-search:also-bought“) zählt das Plugin, welche Artikel zusammen gekauft wurden, und legt je Artikel ein Cross-Selling an – sichtbar auf der Produktseite und in der Administration (Artikel → Cross-Selling). Ausschalten entfernt diese Cross-Sellings beim nächsten Lauf; eigene Cross-Sellings bleiben unberührt, Änderungen an den erzeugten werden beim nächsten Lauf überschrieben.</helpText>
+            <defaultValue>false</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>alsoBoughtTitle</name>
+            <label>Title</label>
+            <label lang="de-DE">Überschrift</label>
+            <defaultValue>Kunden kauften auch</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>alsoBoughtMonths</name>
+            <label>Orders of the last … months</label>
+            <label lang="de-DE">Bestellungen der letzten … Monate</label>
+            <defaultValue>36</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>alsoBoughtMinOrders</name>
+            <label>Minimum number of shared orders</label>
+            <label lang="de-DE">Mindestens so oft zusammen gekauft</label>
+            <helpText lang="de-DE">1 = schon eine gemeinsame Bestellung reicht (für kleine Shops). Höher = nur wiederholt gemeinsam gekaufte Artikel.</helpText>
+            <defaultValue>1</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>alsoBoughtMax</name>
+            <label>Maximum products per product</label>
+            <label lang="de-DE">Höchstens … Artikel je Artikel</label>
+            <defaultValue>12</defaultValue>
+        </input-field>
+
+        <component name="sw-entity-multi-id-select">
+            <name>alsoBoughtExclude</name>
+            <entity>product</entity>
+            <label>Never include</label>
+            <label lang="de-DE">Nie berücksichtigen</label>
+            <helpText lang="de-DE">Z. B. Pfand-, Kautions-, Gutschein- oder Versandartikel. Sie erscheinen nicht als Empfehlung und bekommen keine.</helpText>
+        </component>
+    </card>
+
+    <card>
         <title>Excluded products</title>
         <title lang="de-DE">Ausgeschlossene Produkte</title>
 

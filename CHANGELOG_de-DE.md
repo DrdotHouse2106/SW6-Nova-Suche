@@ -1,3 +1,6 @@
+# 1.17.0
+- Neu: **„Kunden kauften auch“** aus den eigenen Bestellungen (Einstellungen → Karte „Kunden kauften auch“, Standard aus). Einmal täglich wird **vorab berechnet**, welche Artikel zusammen gekauft wurden (stornierte Bestellungen nicht, Varianten beim Hauptartikel), und je Artikel ein Shopware-Cross-Selling mit fester ID angelegt – die Produktseite lädt dadurch nichts zusätzlich nach. Einstellbar: Überschrift, Zeitraum (Standard 36 Monate), Mindestanzahl gemeinsamer Bestellungen, höchstens Artikel je Artikel, „Nie berücksichtigen“ (z. B. Pfand, Kaution). Sofort berechnen: `bin/console nova-search:also-bought`. Mit Nova Fahrzeugauswahl ab 1.17.0 nach Fahrzeug gefiltert
+
 # 1.16.0
 - Neu: **Treffer für andere Modelle.** Ist in der Fahrzeugauswahl ein Fahrzeug gewählt und findet das Suchfenster dafür nichts, sucht es ohne Fahrzeugfilter nach: „Für Ihr Fahrzeug „Acadiane“ keine Treffer für „42003“ – für andere Modelle gibt es 3 Treffer“, darunter die Treffer und ein Link „Fahrzeugauswahl aufheben und alle Treffer anzeigen“. Die Empfehlungen und Schwestershops entfallen dann. Braucht Nova Fahrzeugauswahl ab 1.16.0 (ohne sie bleibt alles wie bisher)
 - Ein 0-Treffer-Begriff mit aktivem Fahrzeugfilter wird nur noch für die Claude-Auswertung vorgemerkt, wenn es auch für andere Modelle nichts gibt
