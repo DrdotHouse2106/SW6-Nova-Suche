@@ -16,9 +16,11 @@ use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductManufacturer\ProductManufacturerEntity;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
 use Shopware\Core\Content\Product\ProductCollection;
+use Shopware\Core\Content\Property\Aggregate\PropertyGroupOption\PropertyGroupOptionEntity;
 use Shopware\Core\Content\Property\PropertyGroupCollection;
 use Shopware\Core\Content\Product\SalesChannel\ProductAvailableFilter;
 use Shopware\Core\Content\Product\SalesChannel\Search\AbstractProductSearchRoute;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Bucket\TermsAggregation;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\AggregationResult\Bucket\TermsResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\AggregationResult\Metric\EntityResult;
@@ -61,6 +63,13 @@ class InstantSearchController extends StorefrontController
     private const MAX_TERM_LENGTH = 100;
     private const MANUFACTURER_COUNT = 'nova-manufacturer-count';
 
+    /** Schnittstelle der Fahrzeugauswahl (Nova Fahrzeugauswahl ab 1.16.0): Filter aktiv / für eine Abfrage weglassen */
+    private const VEHICLE_EXTENSION = 'novaVehicleFilter';
+    private const VEHICLE_SKIP_STATE = 'nova-vehicle-filter-skip';
+
+    /** @var EntityRepository<\Shopware\Core\Content\Property\Aggregate\PropertyGroupOption\PropertyGroupOptionCollection>|null */
+    private ?EntityRepository $optionRepository = null;
+
     private ?TrafficLimiter $limiter = null;
 
     private ?ZeroResultMarker $zeroResults = null;
@@ -89,6 +98,14 @@ class InstantSearchController extends StorefrontController
     public function setZeroResults(ZeroResultMarker $zeroResults): void
     {
         $this->zeroResults = $zeroResults;
+    }
+
+    /**
+     * @param EntityRepository<\Shopware\Core\Content\Property\Aggregate\PropertyGroupOption\PropertyGroupOptionCollection> $optionRepository
+     */
+    public function setOptionRepository(EntityRepository $optionRepository): void
+    {
+        $this->optionRepository = $optionRepository;
     }
 
     #[Route(
@@ -273,6 +290,15 @@ class InstantSearchController extends StorefrontController
         $exactNumber = LearningProductSearchBuilder::isExactNumberRequest($request);
         $redirect = $exactNumber ? null : $this->rules->redirect($term, $salesChannelId);
 
+        // Ein Fahrzeug ist gewählt und schränkt auf 0 Treffer ein: Gibt es Treffer für andere Modelle?
+        $vehicleFiltered = $result?->getCriteria()->getExtension(self::VEHICLE_EXTENSION) instanceof ArrayStruct;
+        $vehicleChecked = false;
+        $vehicle = null;
+        if ($total === 0 && $vehicleFiltered && !$light && $page === 1 && $redirect === null) {
+            $vehicleChecked = true;
+            $vehicle = $this->otherVehicles($result, $searchRequest, $context);
+        }
+
         $variables = [
             'term' => $term,
             'exactNumber' => $exactNumber,
@@ -282,6 +308,7 @@ class InstantSearchController extends StorefrontController
             'total' => $total,
             'page' => $page,
             'hasMore' => $page * $limit < $total,
+            'vehicle' => $vehicle,
         ];
 
         if ($page > 1) {
@@ -310,7 +337,7 @@ class InstantSearchController extends StorefrontController
 
         // Keine Treffer: eigener Text und Produktempfehlungen (nicht bei „Nur exakte Teilenummer“)
         $recommendations = new ProductCollection();
-        if ($total === 0 && !$light && !$exactNumber && $redirect === null && $this->config->get('NovaSearch.config.noResultsProducts', $salesChannelId) !== false) {
+        if ($total === 0 && $vehicle === null && !$light && !$exactNumber && $redirect === null && $this->config->get('NovaSearch.config.noResultsProducts', $salesChannelId) !== false) {
             $recommendations = $this->highlights($context, 12, true);
         }
 
@@ -318,7 +345,7 @@ class InstantSearchController extends StorefrontController
         // in Schwestershops mit dem ursprünglichen Begriff nachsehen – nicht, wenn nur die Filter alles ausschließen
         $filterCount = \count($manufacturerIds) + \count($propertyIds) + ($minPrice !== null || $maxPrice !== null ? 1 : 0);
         $partners = [];
-        if (($total === 0 || $rewrite instanceof ArrayStruct) && !$light && !$exactNumber && $filterCount === 0 && $redirect === null) {
+        if (($total === 0 || $rewrite instanceof ArrayStruct) && $vehicle === null && !$light && !$exactNumber && $filterCount === 0 && $redirect === null) {
             $partnerIds = $this->idConfig('NovaSearch.config.partnerSalesChannels', $salesChannelId);
             if ($partnerIds !== []) {
                 $partners = $this->partnerSearch->search($term, $context, $partnerIds);
@@ -328,7 +355,7 @@ class InstantSearchController extends StorefrontController
         // Echte 0 Treffer (ohne Filter, Umschreibung, Weiterleitung) kurz merken – der Beacon des
         // Suchfensters darf den fertigen Begriff dann für die Claude-Auswertung vormerken
         if ($total === 0 && $result !== null && !$light && !($rewrite instanceof ArrayStruct) && !$exactNumber && $filterCount === 0
-            && $redirect === null && !SearchCountGuard::isBot($request)) {
+            && $redirect === null && (!$vehicleFiltered || ($vehicleChecked && $vehicle === null)) && !SearchCountGuard::isBot($request)) {
             $this->zeroResults?->mark($salesChannelId, $term);
         }
 
@@ -403,6 +430,39 @@ class InstantSearchController extends StorefrontController
             'recommendations' => $recommendations,
             'noResultsText' => $exactNumber ? '' : trim($this->config->getString('NovaSearch.config.noResultsText', $salesChannelId)),
         ]);
+    }
+
+    /**
+     * Dieselbe Suche ohne Fahrzeugfilter. Null, wenn es auch für andere Modelle nichts gibt.
+     *
+     * @return array{name: string|null, total: int, products: ProductCollection}|null
+     */
+    private function otherVehicles(?\Shopware\Core\Content\Product\SalesChannel\Listing\ProductListingResult $result, Request $searchRequest, SalesChannelContext $context): ?array
+    {
+        $filter = $result?->getCriteria()->getExtension(self::VEHICLE_EXTENSION);
+        $optionId = $filter instanceof ArrayStruct ? $filter->get('optionId') : null;
+
+        $criteria = new Criteria();
+        $criteria->setTitle('nova-search::instant-other-vehicles');
+        $criteria->addState(self::VEHICLE_SKIP_STATE);
+        try {
+            $other = $this->productSearchRoute->load($searchRequest, $context, $criteria)->getListingResult();
+        } catch (HttpException) {
+            return null;
+        }
+        if ($other->getTotal() === 0) {
+            return null;
+        }
+
+        $name = null;
+        if (\is_string($optionId) && $this->optionRepository !== null) {
+            $option = $this->optionRepository->search(new Criteria([$optionId]), $context->getContext())->first();
+            if ($option instanceof PropertyGroupOptionEntity) {
+                $name = (string) $option->getTranslation('name');
+            }
+        }
+
+        return ['name' => $name !== '' ? $name : null, 'total' => $other->getTotal(), 'products' => $other->getEntities()];
     }
 
     /**

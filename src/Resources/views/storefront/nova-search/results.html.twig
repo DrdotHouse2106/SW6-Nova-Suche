@@ -29,7 +29,18 @@
         {% elseif total == 0 and categories|length == 0 and filterCount == 0 %}
             {% block nova_search_empty %}
                 <div class="nova-search-empty">
-                    {% if exactNumber|default(false) %}
+                    {% if vehicle|default(null) %}
+                        {% block nova_search_empty_vehicle %}
+                            <p class="nova-search-empty-title">
+                                {% if vehicle.name %}
+                                    {{ 'novaSearch.vehicleNoResults'|trans({ '%term%': term, '%vehicle%': vehicle.name }) }}
+                                {% else %}
+                                    {{ 'novaSearch.vehicleNoResultsUnnamed'|trans({ '%term%': term }) }}
+                                {% endif %}
+                            </p>
+                            <p class="nova-search-empty-hint">{{ 'novaSearch.vehicleOtherHint'|trans({ '%count%': vehicle.total }) }}</p>
+                        {% endblock %}
+                    {% elseif exactNumber|default(false) %}
                         <p class="nova-search-empty-title">{{ 'novaSearch.exactNoResults'|trans({ '%term%': term }) }}</p>
                         <p class="nova-search-empty-hint">{{ 'novaSearch.exactNoResultsHint'|trans }}</p>
                     {% else %}
@@ -107,6 +118,30 @@
                 </div>
 
                 {% sw_include '@NovaSearch/storefront/nova-search/partners.html.twig' %}
+
+                {% if vehicle|default(null) %}
+                    {% block nova_search_empty_vehicle_products %}
+                        <section class="nova-search-highlights nova-search-other-vehicles">
+                            <h2 class="nova-search-title">{{ 'novaSearch.vehicleOtherTitle'|trans({ '%count%': vehicle.total }) }}</h2>
+                            <div class="nova-search-slider">
+                                <button type="button" class="nova-search-slider-btn is-prev" data-nova-search-slide="-1" aria-label="{{ 'novaSearch.previous'|trans|striptags }}">
+                                    {% sw_icon 'arrow-head-left' %}
+                                </button>
+                                <ul class="nova-search-slider-track list-unstyled" data-nova-list-id="search_other_vehicles" data-nova-list-name="Suche: Treffer für andere Fahrzeuge">
+                                    {% for product in vehicle.products %}
+                                        {% sw_include '@NovaSearch/storefront/nova-search/card.html.twig' with { product: product } %}
+                                    {% endfor %}
+                                </ul>
+                                <button type="button" class="nova-search-slider-btn is-next" data-nova-search-slide="1" aria-label="{{ 'novaSearch.next'|trans|striptags }}">
+                                    {% sw_icon 'arrow-head-right' %}
+                                </button>
+                            </div>
+                            <p class="nova-search-other-vehicles-all">
+                                <a class="nova-search-focusable" href="{{ path('frontend.search.page', { search: term, fahrzeug: 'alle' }) }}">{{ 'novaSearch.vehicleShowAll'|trans }}</a>
+                            </p>
+                        </section>
+                    {% endblock %}
+                {% endif %}
 
                 {% if recommendations|default([])|length > 0 %}
                     {% block nova_search_empty_recommendations %}

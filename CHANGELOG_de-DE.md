@@ -1,3 +1,7 @@
+# 1.16.0
+- Neu: **Treffer für andere Modelle.** Ist in der Fahrzeugauswahl ein Fahrzeug gewählt und findet das Suchfenster dafür nichts, sucht es ohne Fahrzeugfilter nach: „Für Ihr Fahrzeug „Acadiane“ keine Treffer für „42003“ – für andere Modelle gibt es 3 Treffer“, darunter die Treffer und ein Link „Fahrzeugauswahl aufheben und alle Treffer anzeigen“. Die Empfehlungen und Schwestershops entfallen dann. Braucht Nova Fahrzeugauswahl ab 1.16.0 (ohne sie bleibt alles wie bisher)
+- Ein 0-Treffer-Begriff mit aktivem Fahrzeugfilter wird nur noch für die Claude-Auswertung vorgemerkt, wenn es auch für andere Modelle nichts gibt
+
 # 1.15.0
 - Sicherheit: **Claude bekommt nur noch Begriffe, die wirklich keine Treffer haben.** Bisher konnte ein Aufruf mit erfundener Trefferzahl 0 („bremse“, obwohl es Bremsenteile gibt) eine Claude-Umschreibung auslösen, die danach 30 Tage lang auf jede Suche nach dem Begriff angewendet wurde. Jetzt prüft der Hintergrundlauf jeden Begriff unmittelbar vor der Anfrage an Claude gegen die echte Produktsuche; Begriffe mit Treffern scheiden aus. Zusätzlich merkt der Beacon des Suchfensters einen Begriff nur noch vor, wenn der Server ihn kurz vorher selbst ohne Treffer ausgeliefert hat
 - Sicherheit: Ist die Produktsuche bei einer Hintergrundprüfung gestört, gilt das nicht mehr als „0 Treffer“ – es wird nichts gelernt, gelöscht oder deaktiviert, der nächste Lauf prüft erneut (gelernte Korrekturen, 30-Tage-Prüfung, beliebte Begriffe, Ranking). Begriffe, die nur aus Stoppwörtern bestehen, zählen weiterhin als „keine Treffer“

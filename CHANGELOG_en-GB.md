@@ -1,3 +1,7 @@
+# 1.16.0
+- New: **results for other models.** If a vehicle is selected in the vehicle switcher and the search window finds nothing for it, it searches again without the vehicle filter: “No results for “42003” for your vehicle “Acadiane” – there are 3 results for other models”, followed by these results and a link “Clear vehicle selection and show all results”. Recommendations and partner shops are skipped then. Requires Nova vehicle switcher 1.16.0 (without it nothing changes)
+- A zero-result term with an active vehicle filter is only queued for the Claude analysis if there are no results for other models either
+
 # 1.15.0
 - Security: **only terms that really have no results are sent to Claude.** Previously a request with a forged hit count of 0 ("bremse" although brake parts exist) could trigger a Claude rewrite that was then applied to every search for that term for 30 days. The background run now checks every term against the real product search right before asking Claude; terms with results are dropped. In addition, the search window beacon only queues a term when the server itself delivered it without results shortly before
 - Security: a failing product search during a background check no longer counts as "0 hits" – nothing is learned, deleted or disabled, the next run checks again (learned corrections, 30-day re-check, popular terms, ranking). Terms consisting only of stop words still count as "no results"

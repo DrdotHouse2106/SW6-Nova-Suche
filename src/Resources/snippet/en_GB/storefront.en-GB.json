@@ -87,6 +87,11 @@
             "textPlaceholder": "Optional, max. 200 characters",
             "send": "Send",
             "thanks": "Thank you!"
-        }
+        },
+        "vehicleNoResults": "No results for “%term%” for your vehicle “%vehicle%”",
+        "vehicleNoResultsUnnamed": "No results for “%term%” for your selected vehicle",
+        "vehicleOtherHint": "There are %count% results for other models. Please check whether the part fits your vehicle.",
+        "vehicleOtherTitle": "Results for other models (%count%)",
+        "vehicleShowAll": "Clear vehicle selection and show all results"
     }
 }

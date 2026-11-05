@@ -87,6 +87,11 @@
             "textPlaceholder": "Optional, max. 200 Zeichen",
             "send": "Senden",
             "thanks": "Danke!"
-        }
+        },
+        "vehicleNoResults": "Für Ihr Fahrzeug „%vehicle%“ keine Treffer für „%term%“",
+        "vehicleNoResultsUnnamed": "Für Ihr gewähltes Fahrzeug keine Treffer für „%term%“",
+        "vehicleOtherHint": "Für andere Modelle gibt es %count% Treffer. Bitte prüfen Sie, ob das Teil zu Ihrem Fahrzeug passt.",
+        "vehicleOtherTitle": "Treffer für andere Modelle (%count%)",
+        "vehicleShowAll": "Fahrzeugauswahl aufheben und alle Treffer anzeigen"
     }
 }

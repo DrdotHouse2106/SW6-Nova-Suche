@@ -29,6 +29,9 @@
             <call method="setZeroResults">
                 <argument type="service" id="Nova\Search\Service\ZeroResultMarker"/>
             </call>
+            <call method="setOptionRepository">
+                <argument type="service" id="property_group_option.repository"/>
+            </call>
         </service>
 
         <service id="Nova\Search\Service\ZeroResultMarker">
