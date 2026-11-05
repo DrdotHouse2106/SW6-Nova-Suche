@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <!--
+        Übersichtlicher: Erweiterungen → Nova Suche → Reiter „Einstellungen“. Dort erscheinen dieselben
+        Felder, nach Themen auf Unterreiter verteilt: Der Unterreiter wählt die Karten über ihren <name>
+        (siehe nova-search-settings/index.js, SECTIONS). Feldnamen nie ändern – die Werte liegen in
+        system_config unter NovaSearch.config.<feld>.
+    -->
 
     <card>
+        <name>instantSearch</name>
         <title>Instant search</title>
         <title lang="de-DE">Sofortsuche</title>
 
@@ -10,7 +17,7 @@
             <name>active</name>
             <label>Use instant search</label>
             <label lang="de-DE">Sofortsuche verwenden</label>
-            <helpText lang="de-DE">Standardmäßig aus, damit nach der Installation nicht sofort alle Shops umgestellt werden. Oben den Verkaufskanal wählen und gezielt einschalten. Aus = Shopwares Standard-Suchvorschläge.</helpText>
+            <helpText lang="de-DE">Je Verkaufskanal einschalten (oben den Kanal wählen). Aus = Shopwares Standard-Suchvorschläge. Nach der Installation aus.</helpText>
             <helpText>Off by default so that installing does not switch all shops at once. Select the sales channel at the top and enable it there.</helpText>
             <defaultValue>false</defaultValue>
         </input-field>
@@ -51,6 +58,7 @@
     </card>
 
     <card>
+        <name>startView</name>
         <title>Start view</title>
         <title lang="de-DE">Startansicht (bevor etwas getippt wird)</title>
 
@@ -73,7 +81,7 @@
             <name>popularMinSearches</name>
             <label>Minimum number of searches</label>
             <label lang="de-DE">Mindestanzahl Suchen für „beliebt“</label>
-            <helpText lang="de-DE">Schützt davor, dass einzelne oder gezielt eingegebene Begriffe öffentlich angezeigt werden. Zusätzlich muss der Begriff an mindestens drei verschiedenen Tagen gesucht worden sein und bei der Prüfung im Hintergrund Treffer liefern.</helpText>
+            <helpText lang="de-DE">Schutz davor, dass einzelne oder gezielt eingegebene Begriffe öffentlich erscheinen. Außerdem nötig: an mindestens drei verschiedenen Tagen gesucht und Treffer bei der stündlichen Prüfung.</helpText>
             <defaultValue>5</defaultValue>
             <min>1</min>
         </input-field>
@@ -140,6 +148,7 @@
     </card>
 
     <card>
+        <name>results</name>
         <title>Search layer: results</title>
         <title lang="de-DE">Suchfenster: Treffer</title>
 
@@ -232,6 +241,7 @@
     </card>
 
     <card>
+        <name>learning</name>
         <title>Learning from customer behaviour</title>
         <title lang="de-DE">Lernen aus dem Kundenverhalten</title>
 
@@ -247,7 +257,7 @@
             <name>learnCorrections</name>
             <label>Learn spelling corrections from visitors</label>
             <label lang="de-DE">Tippfehler aus dem Verhalten lernen</label>
-            <helpText lang="de-DE">Sucht ein Besucher z. B. „vergser“, klickt nichts und findet gleich danach mit „vergaser“ ein Produkt, merkt sich die Suche das. Ab der eingestellten Anzahl wird „vergser“ künftig automatisch als „vergaser“ gesucht (Hinweis „Ergebnisse für …“). Nur bei kleinen Abweichungen in der Schreibweise, nur wenn „vergser“ selbst nichts findet und „vergaser“ Treffer hat (Prüfung stündlich im Hintergrund). Gespeicherte Umschreibungen lassen sich unter Erweiterungen → Nova Suche → „Ohne Treffer“ deaktivieren.</helpText>
+            <helpText lang="de-DE">Sucht ein Besucher „vergser“, klickt nichts und findet gleich danach mit „vergaser“ etwas, merkt sich die Suche das. Ab der eingestellten Anzahl wird „vergser“ automatisch als „vergaser“ gesucht („Ergebnisse für …“). Nur bei kleinen Schreibabweichungen, nur wenn der falsche Begriff nichts und der richtige etwas findet (stündliche Prüfung). Abschalten einzelner Umschreibungen: Auswertung → „Ohne Treffer“.</helpText>
             <defaultValue>true</defaultValue>
         </input-field>
 
@@ -255,7 +265,7 @@
             <name>correctionMinCount</name>
             <label>Learn a correction after this many observations</label>
             <label lang="de-DE">Tippfehler übernehmen nach so vielen Beobachtungen</label>
-            <helpText lang="de-DE">Wie viele verschiedene Besucher dieselbe Korrektur gemacht haben müssen (je Besucher und Tag zählt sie einmal, außerdem an mindestens zwei verschiedenen Tagen). Standard und Minimum 2.</helpText>
+            <helpText lang="de-DE">So viele verschiedene Besucher müssen dieselbe Korrektur gemacht haben (je Besucher und Tag einmal, an mindestens zwei Tagen). Standard und Minimum 2.</helpText>
             <defaultValue>2</defaultValue>
         </input-field>
 
@@ -263,13 +273,14 @@
             <name>boostMinScore</name>
             <label>Minimum learning score for ranking boost</label>
             <label lang="de-DE">Mindest-Lernwert für bessere Platzierung</label>
-            <helpText lang="de-DE">Klick = 1, Warenkorb = 3, Kauf = 5 Punkte je Begriff und Produkt. Erst ab diesem Wert rückt ein Produkt bei diesem Begriff nach oben – so verzerren Einzelklicks nichts. Je Besucher und Tag zählt ein Signal einmal, und berücksichtigt werden nur Produkte, die die Suche bei dem Begriff auch ohne Lernen findet (Prüfung stündlich im Hintergrund).</helpText>
+            <helpText lang="de-DE">Klick = 1, Warenkorb = 3, Kauf = 5 Punkte je Begriff und Produkt. Erst ab diesem Wert rückt das Produkt bei dem Begriff nach oben, damit Einzelklicks nichts verzerren. Je Besucher und Tag zählt ein Signal einmal; nur Produkte, die die Suche auch ohne Lernen findet.</helpText>
             <defaultValue>3</defaultValue>
             <min>1</min>
         </input-field>
     </card>
 
     <card>
+        <name>feedback</name>
         <title>Search result feedback</title>
         <title lang="de-DE">Rückmeldung zum Suchergebnis</title>
 
@@ -277,13 +288,14 @@
             <name>feedbackActive</name>
             <label>Ask “Do you like the search result?”</label>
             <label lang="de-DE">„Gefällt Ihnen das Suchergebnis?“ anzeigen</label>
-            <helpText lang="de-DE">Unter den Treffern im Suchfenster und auf der Suchergebnisseite (auch bei 0 Treffern): Daumen hoch / Daumen runter, nach „Daumen runter“ optional ein kurzer Text (max. 200 Zeichen). Gespeichert werden Verkaufskanal, Suchbegriff, Trefferzahl, Bewertung, Text, Quelle und Datum – keine IP-Adressen, Kunden- oder Sitzungsdaten. Löschung nach 12 Monaten. Auswertung unter Erweiterungen → Nova Suche → Auswertung → „Rückmeldungen“. Der Text ist eine freie Eingabe und kann personenbezogene Daten enthalten – bitte in der Datenschutzerklärung erwähnen.</helpText>
+            <helpText lang="de-DE">Daumen hoch/runter unter den Treffern (Suchfenster und Suchergebnisseite, auch bei 0 Treffern), nach „Daumen runter“ optional ein kurzer Text (max. 200 Zeichen). Gespeichert: Verkaufskanal, Suchbegriff, Trefferzahl, Bewertung, Text, Quelle, Datum – keine IP-, Kunden- oder Sitzungsdaten; Löschung nach 12 Monaten. Auswertung: Reiter „Auswertung“ → „Rückmeldungen“. Der freie Text kann personenbezogene Daten enthalten – bitte in der Datenschutzerklärung erwähnen.</helpText>
             <helpText>Below the results in the search window and on the search result page (also with 0 hits): thumbs up / down, after thumbs down an optional short text (max. 200 characters). Stored: sales channel, search term, number of hits, rating, text, source and date – no IP addresses, customer or session data. Deleted after 12 months.</helpText>
             <defaultValue>true</defaultValue>
         </input-field>
     </card>
 
     <card>
+        <name>claude</name>
         <title>Claude (AI)</title>
         <title lang="de-DE">Claude (KI) – Suchbegriffe ohne Treffer verbessern</title>
 
@@ -339,6 +351,7 @@
     </card>
 
     <card>
+        <name>wordParts</name>
         <title>Word parts</title>
         <title lang="de-DE">Wortteile</title>
 
@@ -347,12 +360,13 @@
             <label>Find words inside compound words</label>
             <label lang="de-DE">Wörter auch innerhalb zusammengesetzter Wörter finden</label>
             <helpText>Shopware only matches the beginning or end of a word. With this option, search words of 5 or more letters are also found inside longer words, and a compound search term without results is split into two parts that must both match.</helpText>
-            <helpText lang="de-DE">Shopware findet ein Suchwort nur am Wortanfang oder -ende: „vergaser“ findet „Vergaserdichtung“ und „Doppelvergaser“, aber nicht „Komplettsatz zur Überholung des Doppelvergasers“. Mit dieser Option finden Wörter ab 5 Buchstaben auch Wörter, die sie mittendrin enthalten. Ein zusammengesetzter Suchbegriff ohne Treffer wird in zwei Teile zerlegt, die beide passen müssen („vergasersatz“ → „vergaser“ + „…satz“). Solche Treffer stehen hinter den genauen.</helpText>
+            <helpText lang="de-DE">Shopware findet ein Suchwort nur am Wortanfang oder -ende („vergaser“ findet „Doppelvergaser“, aber nicht „Doppelvergasers“). Mit dieser Option werden Suchwörter ab 5 Buchstaben auch mitten in Wörtern gefunden. Ein zusammengesetzter Begriff ohne Treffer wird in zwei Teile zerlegt, die beide passen müssen („vergasersatz“ → „vergaser“ + „…satz“). Solche Treffer stehen hinter den genauen.</helpText>
             <defaultValue>true</defaultValue>
         </input-field>
     </card>
 
     <card>
+        <name>numberSearch</name>
         <title>Number search</title>
         <title lang="de-DE">Nummernsuche (Artikel-, Hersteller-, OE-Nummern)</title>
 
@@ -410,6 +424,7 @@
     </card>
 
     <card>
+        <name>alsoBought</name>
         <title>Customers also bought</title>
         <title lang="de-DE">Kunden kauften auch</title>
 
@@ -418,7 +433,7 @@
             <label>Create “customers also bought” from orders</label>
             <label lang="de-DE">„Kunden kauften auch“ aus den Bestellungen erzeugen</label>
             <helpText>Once a day (scheduled task “nova_search.also_bought”, or console “nova-search:also-bought”) the plugin counts which products were bought together and creates a cross-selling per product. Switching off removes these cross-sellings on the next run. Own cross-sellings stay untouched.</helpText>
-            <helpText lang="de-DE">Einmal täglich (geplante Aufgabe „nova_search.also_bought“, sofort per Konsole „nova-search:also-bought“) zählt das Plugin, welche Artikel zusammen gekauft wurden, und legt je Artikel ein Cross-Selling an – sichtbar auf der Produktseite und in der Administration (Artikel → Cross-Selling). Ausschalten entfernt diese Cross-Sellings beim nächsten Lauf; eigene Cross-Sellings bleiben unberührt, Änderungen an den erzeugten werden beim nächsten Lauf überschrieben.</helpText>
+            <helpText lang="de-DE">Einmal täglich (geplante Aufgabe „nova_search.also_bought“, sofort: bin/console nova-search:also-bought) zählt das Plugin, welche Artikel zusammen gekauft wurden, und legt je Artikel ein Cross-Selling an (Produktseite, Artikel → Cross-Selling). Ausschalten entfernt diese beim nächsten Lauf. Eigene Cross-Sellings bleiben unberührt; Änderungen an den erzeugten werden beim nächsten Lauf überschrieben.</helpText>
             <defaultValue>false</defaultValue>
         </input-field>
 
@@ -461,6 +476,7 @@
     </card>
 
     <card>
+        <name>excluded</name>
         <title>Excluded products</title>
         <title lang="de-DE">Ausgeschlossene Produkte</title>
 

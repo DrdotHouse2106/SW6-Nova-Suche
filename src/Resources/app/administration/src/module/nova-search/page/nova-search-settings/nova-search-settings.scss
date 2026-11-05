@@ -1,0 +1,27 @@
+.nova-search-settings {
+    .nova-search-settings__content {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 32px 24px;
+    }
+
+    .nova-search-settings__sections {
+        margin-bottom: 16px;
+    }
+
+    .nova-search-settings__intro {
+        margin-bottom: 16px;
+        color: var(--color-text-secondary-default, #52667a);
+    }
+
+    .nova-search-settings__channel-switch {
+        max-width: 480px;
+        margin-bottom: 16px;
+    }
+
+    .nova-search-settings__muted {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--color-text-secondary-default, #52667a);
+    }
+}

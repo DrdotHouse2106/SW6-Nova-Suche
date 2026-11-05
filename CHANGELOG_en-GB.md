@@ -1,3 +1,8 @@
+# 1.18.0
+- **Settings clearly arranged in the module:** *Extensions → Nova Search* has a new tab **“Settings”** with sub-tabs **Search window** (instant search, start view, results) · **Learning & AI** (learning from customer behaviour, feedback, Claude) · **Finding results** (word parts, number search, excluded products) · **Customers also bought** – instead of one long page. Sales channel switch and inheritance as usual; “Save” stores the changes of all sub-tabs
+- Same values as in the plugin configuration (`NovaSearch.config.*`), no migration. The classic plugin configuration keeps working and shows a hint with a link to the new tab at the top; the “Settings” button in analytics and lists now opens the tab as well
+- Some help texts shortened and clarified (no functional change)
+
 # 1.17.1
 - “Customers also bought” is shown on the product page as **its own row below the regular cross-selling** instead of an additional tab. Regular cross-sellings stay unchanged in their tabs
 

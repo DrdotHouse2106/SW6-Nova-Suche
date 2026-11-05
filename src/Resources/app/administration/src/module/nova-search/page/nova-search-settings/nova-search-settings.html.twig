@@ -1,0 +1,48 @@
+{% block nova_search_settings %}
+<sw-page class="nova-search-settings">
+    <template #smart-bar-header>
+        <h2>{{ $tc('nova-search.general.title') }}</h2>
+    </template>
+
+    <template #smart-bar-actions>
+        <mt-button
+            v-if="canEdit"
+            variant="primary"
+            :is-loading="isSaving"
+            :disabled="isSaving"
+            @click="save"
+        >
+            {{ $tc('nova-search.settings.save') }}
+        </mt-button>
+    </template>
+
+    <template #content>
+        <div class="nova-search-settings__content">
+            <nova-search-tabs />
+
+            <sw-tabs position-identifier="nova-search-settings-sections" class="nova-search-settings__sections">
+                <sw-tabs-item v-for="s in sections" :key="s.key" :route="sectionRoute(s.key)">
+                    {{ $tc('nova-search.settings.sections.' + s.key) }}
+                </sw-tabs-item>
+            </sw-tabs>
+
+            <p class="nova-search-settings__intro">{{ $tc('nova-search.settings.intro.' + section) }}</p>
+
+            <div class="nova-search-settings__channel-switch">
+                <sw-sales-channel-switch
+                    :label="$tc('nova-search.settings.salesChannel')"
+                    @change-sales-channel-id="onSalesChannelChanged"
+                />
+                <p class="nova-search-settings__muted">{{ $tc('nova-search.settings.salesChannelHelp') }}</p>
+            </div>
+
+            <nova-search-system-config
+                ref="systemConfig"
+                class="nova-search-settings__config"
+                domain="NovaSearch.config"
+                :cards="currentCards"
+            />
+        </div>
+    </template>
+</sw-page>
+{% endblock %}

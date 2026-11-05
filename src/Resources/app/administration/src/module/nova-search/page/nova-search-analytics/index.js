@@ -282,7 +282,7 @@ Component.register('nova-search-analytics', {
         },
 
         openSettings() {
-            this.$router.push({ name: 'sw.extension.config', params: { namespace: 'NovaSearch' } });
+            this.$router.push({ name: 'nova.search.settings' });
         },
     },
 });

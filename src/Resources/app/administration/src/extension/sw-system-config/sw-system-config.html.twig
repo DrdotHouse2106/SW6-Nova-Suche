@@ -1,0 +1,16 @@
+{% block sw_system_config %}
+<div class="nova-search-system-config-hint-wrapper">
+    <mt-banner
+        v-if="novaSearchShowModuleHint"
+        class="nova-search-system-config-hint"
+        variant="info"
+        :title="$tc('nova-search.configHint.title')"
+    >
+        {{ $tc('nova-search.configHint.text') }}
+        <router-link :to="{ name: 'nova.search.settings' }">
+            {{ $tc('nova-search.configHint.link') }}
+        </router-link>
+    </mt-banner>
+    {% parent %}
+</div>
+{% endblock %}

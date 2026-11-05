@@ -1,10 +1,13 @@
 import './component/nova-search-tabs';
+import './component/nova-search-system-config';
 import './page/nova-search-analytics';
 import './page/nova-search-rules';
+import './page/nova-search-settings';
 import './nova-search.scss';
 
 /**
- * Erweiterungen → Nova Suche: Auswertung, Synonyme, Weiterleitungen, Hinweise und Weg zu den Einstellungen.
+ * Erweiterungen → Nova Suche: Auswertung, Synonyme, Weiterleitungen, Hinweise und Einstellungen (gleiche
+ * Werte wie die Plugin-Konfiguration, nach Themen auf Unterreiter verteilt).
  */
 Shopware.Module.register('nova-search', {
     type: 'plugin',
@@ -33,6 +36,10 @@ Shopware.Module.register('nova-search', {
             component: 'nova-search-rules',
             path: 'hints',
             meta: { ruleType: 'hint' },
+        },
+        settings: {
+            component: 'nova-search-settings',
+            path: 'settings/:section?',
         },
     },
 

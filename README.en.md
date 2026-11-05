@@ -35,7 +35,7 @@ bin/console theme:compile
 bin/console cache:clear
 ```
 
-Configure it under *Extensions → My extensions → Nova Search → Configure*.
+Configure it under *Extensions → Nova Search → Settings* (since 1.18.0: the plugin configuration sorted by topic into sub-tabs *Search window · Learning & AI · Finding results · Customers also bought*, with sales channel switch and inheritance – same values as *Extensions → My extensions → Nova Search → Configure*, which keeps working and links to the module).
 
 
 ## Store API for apps

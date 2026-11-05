@@ -97,7 +97,8 @@
             "analytics": "Auswertung",
             "synonyms": "Synonyme",
             "redirects": "Weiterleitungen",
-            "hints": "Hinweise"
+            "hints": "Hinweise",
+            "settings": "Einstellungen"
         },
         "rules": {
             "search": "Liste durchsuchen …",
@@ -172,6 +173,30 @@
                 "words": "Wörter",
                 "text": "Hinweis",
                 "url": "Link (optional)"
+            }
+        },
+        "configHint": {
+            "title": "Übersichtlicher: Nova-Suche-Modul",
+            "text": "Dieselben Einstellungen gibt es nach Themen sortiert in Reitern – unter Erweiterungen → Nova Suche → Einstellungen, neben Auswertung, Synonymen und Weiterleitungen.",
+            "link": "Einstellungen im Modul öffnen"
+        },
+        "settings": {
+            "save": "Speichern",
+            "saved": "Einstellungen gespeichert.",
+            "saveError": "Speichern fehlgeschlagen.",
+            "salesChannel": "Verkaufskanal",
+            "salesChannelHelp": "„Alle Verkaufskanäle“ = Standardwerte. Je Kanal erbt ein Feld den Standardwert, solange das Kettensymbol geschlossen ist. Gleiche Werte wie in der Plugin-Konfiguration; Speichern sichert die Änderungen aller Unterreiter.",
+            "sections": {
+                "layer": "Suchfenster",
+                "learning": "Lernen & KI",
+                "matching": "Treffer finden",
+                "alsoBought": "Kunden kauften auch"
+            },
+            "intro": {
+                "layer": "Was der Kunde im Suchfenster sieht: Sofortsuche ein/aus, die Startansicht vor dem ersten Tastendruck und die Darstellung der Treffer (auch bei 0 Treffern).",
+                "learning": "Wie die Suche mit der Zeit besser wird: aus Suchen, Klicks und Käufen, aus der Rückmeldung der Kunden und optional mit Claude für Begriffe ohne Treffer.",
+                "matching": "Welche Produkte zu einem Suchbegriff gefunden werden: Wortteile, Artikel-/Hersteller-/OE-Nummern und Produkte, die nie erscheinen sollen.",
+                "alsoBought": "Täglich aus den Bestellungen berechnete Empfehlungen „Kunden kauften auch“ als Cross-Selling auf der Produktseite."
             }
         }
     }

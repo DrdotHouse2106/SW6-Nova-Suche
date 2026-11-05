@@ -1,3 +1,8 @@
+# 1.18.0
+- **Einstellungen übersichtlich im Modul:** *Erweiterungen → Nova Suche* hat einen neuen Reiter **„Einstellungen“** mit Unterreitern **Suchfenster** (Sofortsuche, Startansicht, Treffer) · **Lernen & KI** (Lernen aus dem Kundenverhalten, Rückmeldung, Claude) · **Treffer finden** (Wortteile, Nummernsuche, Ausgeschlossene Produkte) · **Kunden kauften auch** – statt einer langen Seite. Verkaufskanal-Umschalter und Vererbung wie gewohnt; „Speichern“ sichert die Änderungen aller Unterreiter
+- Gleiche Werte wie in der Plugin-Konfiguration (`NovaSearch.config.*`), keine Migration. Die klassische Plugin-Konfiguration funktioniert weiter und zeigt oben einen Hinweis mit Link in den neuen Reiter; der Knopf „Einstellungen“ in Auswertung und Listen öffnet jetzt ebenfalls den Reiter
+- Einige Hilfetexte gekürzt und klarer formuliert (keine Funktionsänderung)
+
 # 1.17.1
 - „Kunden kauften auch“ erscheint auf der Produktseite als **eigene Zeile unter dem festen Cross-Selling** statt als weiterer Reiter. Feste Cross-Sellings (Zubehör, passende Teile …) bleiben unverändert in ihren Reitern
 

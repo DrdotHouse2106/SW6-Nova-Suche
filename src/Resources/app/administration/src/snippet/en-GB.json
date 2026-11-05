@@ -97,7 +97,8 @@
             "analytics": "Analytics",
             "synonyms": "Synonyms",
             "redirects": "Redirects",
-            "hints": "Hints"
+            "hints": "Hints",
+            "settings": "Settings"
         },
         "rules": {
             "search": "Search list …",
@@ -172,6 +173,30 @@
                 "words": "Words",
                 "text": "Hint",
                 "url": "Link (optional)"
+            }
+        },
+        "configHint": {
+            "title": "Clearer: Nova Search module",
+            "text": "The same settings are available sorted by topic in tabs – under Extensions → Nova Search → Settings, next to analytics, synonyms and redirects.",
+            "link": "Open settings in the module"
+        },
+        "settings": {
+            "save": "Save",
+            "saved": "Settings saved.",
+            "saveError": "Saving failed.",
+            "salesChannel": "Sales channel",
+            "salesChannelHelp": "\"All sales channels\" = default values. Per channel a field inherits the default as long as the chain icon is closed. Same values as in the plugin configuration; Save stores the changes of all sub-tabs.",
+            "sections": {
+                "layer": "Search window",
+                "learning": "Learning & AI",
+                "matching": "Finding results",
+                "alsoBought": "Customers also bought"
+            },
+            "intro": {
+                "layer": "What customers see in the search window: instant search on/off, the start view before the first keystroke and how results are shown (also with 0 results).",
+                "learning": "How the search improves over time: from searches, clicks and purchases, from customer feedback and optionally with Claude for terms without results.",
+                "matching": "Which products are found for a search term: word parts, product/manufacturer/OE numbers and products that should never appear.",
+                "alsoBought": "\"Customers also bought\" recommendations, calculated daily from orders, shown as cross-selling on the product page."
             }
         }
     }

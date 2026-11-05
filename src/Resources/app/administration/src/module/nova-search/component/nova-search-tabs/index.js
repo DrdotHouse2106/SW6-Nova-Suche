@@ -21,6 +21,7 @@ Shopware.Component.register('nova-search-tabs', {
                 { route: 'nova.search.synonyms', label: 'nova-search.tabs.synonyms' },
                 { route: 'nova.search.redirects', label: 'nova-search.tabs.redirects' },
                 { route: 'nova.search.hints', label: 'nova-search.tabs.hints' },
+                { route: 'nova.search.settings', label: 'nova-search.tabs.settings' },
             ];
         },
     },

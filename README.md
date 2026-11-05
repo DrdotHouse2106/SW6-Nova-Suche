@@ -174,7 +174,7 @@ Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und
 
 ## Auswertung in der Administration
 
-**Erweiterungen → Nova Suche** (eigener Menüpunkt, Reiter *Auswertung · Synonyme · Weiterleitungen*) zeigt für einen Verkaufskanal oder alle Shops und einen Zeitraum (7, 30, 90 oder 365 Tage):
+**Erweiterungen → Nova Suche** (eigener Menüpunkt, Reiter *Auswertung · Synonyme · Weiterleitungen · Hinweise · Einstellungen*) zeigt für einen Verkaufskanal oder alle Shops und einen Zeitraum (7, 30, 90 oder 365 Tage):
 
 - Gezählt werden echte Suchen: Bots, Vorschau-/Prefetch-Abrufe und automatische Aufrufe werden ignoriert, und derselbe Begriff zählt pro Besucher-Sitzung höchstens einmal in 30 Minuten (Neuladen, Zurück-Taste, Suchfenster und danach Enter)
 - **Kennzahlen** mit Veränderung zum Vorzeitraum: Suchen, Anteil ohne Treffer, Klickrate, in den Warenkorb, Käufe nach einer Suche, verschiedene Begriffe
@@ -185,7 +185,7 @@ Auch Shopwares Standard-Route `/store-api/search` nutzt das gelernte Ranking und
 - **Rückmeldungen** (1.14.0): 👍/👎 je Suchbegriff mit Trefferzahl (⚠ = mehr 👎 als 👍) und Knöpfen „Synonym“/„Weiterleitung“, darunter die Texte der Besucher (Datum, Begriff, Verkaufskanal, Text, Quelle) mit Knopf „Löschen“
 - **Claude-Kosten** des laufenden Monats im Verhältnis zum Limit
 - **CSV-Export** je Tabelle (Excel-tauglich, gleiche Daten wie `nova-search:export`)
-- Knopf **„Einstellungen“** führt direkt zur Plugin-Konfiguration
+- Knopf **„Einstellungen“** öffnet den Reiter *Einstellungen* (siehe unten)
 
 Tageswerte werden ab Version 1.6.0 gezählt; frühere Zeiträume sind leer (Gesamtzahlen gibt es weiter im CSV-Export). Gespeichert werden nur Begriffe und Zähler (zum Personenbezug von Suchbegriffen siehe *Datenschutz*); Tageswerte werden nach 2 Jahren gelöscht.
 
@@ -388,12 +388,20 @@ bin/console cache:clear
 
 - `plugin:install` installiert automatisch das offizielle **Anthropic-PHP-SDK** (`anthropic-ai/sdk`) per Composer und legt die Tabellen `nova_search_term`, `nova_search_term_product` und `nova_search_rewrite` an.
 - `theme:compile` ist nötig, damit die Styles des Suchfensters ins Theme übernommen werden.
-- **Danach ist das Suchfenster noch aus.** Unter *Erweiterungen → Meine Erweiterungen → Nova Suche → Konfigurieren* oben den Verkaufskanal wählen und „Sofortsuche verwenden“ einschalten – so lässt sich die Suche zuerst in einem Shop testen.
+- **Danach ist das Suchfenster noch aus.** Unter *Erweiterungen → Nova Suche → Einstellungen → Suchfenster* (oder *Meine Erweiterungen → Nova Suche → Konfigurieren*) oben den Verkaufskanal wählen und „Sofortsuche verwenden“ einschalten – so lässt sich die Suche zuerst in einem Shop testen.
 - Für die stündliche Auswertung müssen Shopwares **Scheduled Tasks und die Message Queue** laufen (Standard bei Shopware: `bin/console scheduled-task:run` und `bin/console messenger:consume` als Dienst/Cronjob oder der Admin-Worker). Alternativ `bin/console nova-search:rewrite` per Cronjob.
 
 ## Einstellungen
 
-**Erweiterungen → Meine Erweiterungen → Nova Suche → Konfigurieren** (pro Verkaufskanal):
+**Erweiterungen → Nova Suche → Einstellungen** (seit 1.18.0, pro Verkaufskanal): dieselben Werte wie in der Plugin-Konfiguration (*Meine Erweiterungen → Nova Suche → Konfigurieren*), aber nach Themen auf Unterreiter verteilt – mit Verkaufskanal-Umschalter und Vererbung („Alle Verkaufskanäle“ = Standardwerte, geschlossenes Kettensymbol = erbt). „Speichern“ sichert die Änderungen aller Unterreiter. Die klassische Plugin-Konfiguration funktioniert weiter und zeigt oben einen Link in den Reiter.
+
+| Unterreiter | Karten |
+|---|---|
+| **Suchfenster** | Sofortsuche · Startansicht (bevor etwas getippt wird) · Suchfenster: Treffer |
+| **Lernen & KI** | Lernen aus dem Kundenverhalten · Rückmeldung zum Suchergebnis · Claude (KI) |
+| **Treffer finden** | Wortteile · Nummernsuche · Ausgeschlossene Produkte |
+| **Kunden kauften auch** | Kunden kauften auch |
+
 
 | Einstellung | Standard | Bedeutung |
 |---|---|---|

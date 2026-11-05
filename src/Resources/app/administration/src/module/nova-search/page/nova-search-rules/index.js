@@ -276,7 +276,7 @@ Component.register('nova-search-rules', {
         },
 
         openSettings() {
-            this.$router.push({ name: 'sw.extension.config', params: { namespace: 'NovaSearch' } });
+            this.$router.push({ name: 'nova.search.settings' });
         },
     },
 });
