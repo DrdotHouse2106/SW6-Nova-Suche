@@ -497,11 +497,19 @@
             <defaultValue>12</defaultValue>
         </input-field>
 
+        <input-field type="int">
+            <name>similarDigits</name>
+            <label>Compare first … digits</label>
+            <label lang="de-DE">Vergleich nach den ersten … Ziffern</label>
+            <helpText lang="de-DE">1 = Hauptgruppe (z. B. alle 6xx), 2 = Untergruppe (62x), 3 = genaue Teileart (621). Standard 1.</helpText>
+            <defaultValue>1</defaultValue>
+        </input-field>
+
         <input-field type="text">
             <name>similarField</name>
             <label>Product custom field for similarity</label>
             <label lang="de-DE">Zusatzfeld für „ähnlich“</label>
-            <helpText lang="de-DE">Technischer Name des Produkt-Zusatzfelds; Artikel mit gleichen führenden Ziffern gelten als ähnlich. Standard: nova_teileart (Nova Kategorie-Automatik).</helpText>
+            <helpText lang="de-DE">Technischer Name des Produkt-Zusatzfelds mit der Teileart. Standard: nova_teileart (Nova Kategorie-Automatik).</helpText>
             <defaultValue>nova_teileart</defaultValue>
         </input-field>
     </card>

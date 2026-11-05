@@ -1,3 +1,6 @@
+# 1.19.1
+- „Ähnliche Artikel“ vergleicht standardmäßig nur die **Hauptgruppe** der Teileart (erste Ziffer, z. B. alle 6xx) statt der genauen Teileart – sonst blieben zu viele Artikel ohne Treffer. Einstellbar: „Vergleich nach den ersten … Ziffern“ (1 = Hauptgruppe, 2 = Untergruppe, 3 = genaue Teileart)
+
 # 1.19.0
 - Neu: **„Ähnliche Artikel“** (Einstellungen → Reiter „Kunden kauften auch“, Standard aus). Einmal täglich – zusammen mit „Kunden kauften auch“ und über `bin/console nova-search:also-bought` – werden Artikel mit derselben Teileart (Produkt-Zusatzfeld, Standard `nova_teileart`, maßgeblich die führenden Ziffern) als weiteres Cross-Selling gespeichert, die meistverkauften zuerst, höchstens 12. Auf der Produktseite erscheint es als Reiter neben dem festen Cross-Selling; ein gewähltes Fahrzeug filtert die Anzeige (Nova Fahrzeugauswahl). Eigene Cross-Sellings bleiben unberührt
 

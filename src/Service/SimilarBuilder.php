@@ -9,8 +9,9 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 /**
- * „Ähnliche Artikel“: Artikel mit demselben Merkmal (Standard: Zusatzfeld „Teileart“, maßgeblich die führenden
- * Ziffern) als Shopware-Cross-Selling, die meistverkauften zuerst. Erscheint auf der Produktseite als weiterer
+ * „Ähnliche Artikel“: Artikel derselben Gruppe (Standard: Zusatzfeld „Teileart“, verglichen werden die ersten
+ * N Ziffern – Standard 1, also die Hauptgruppe wie „6“ für alle 6xx) als Shopware-Cross-Selling, die
+ * meistverkauften zuerst. Erscheint auf der Produktseite als weiterer
  * Reiter neben dem festen Cross-Selling; ein Fahrzeugfilter (z. B. Nova Fahrzeugauswahl) wirkt bei der Anzeige.
  */
 class SimilarBuilder
@@ -38,7 +39,8 @@ class SimilarBuilder
         $field = trim($this->config->getString(self::CONFIG . 'similarField'));
         $field = preg_match('/^[A-Za-z0-9_]+$/', $field) === 1 ? $field : 'nova_teileart';
 
-        $groups = $enabled ? self::group($this->rows($field), $max) : [];
+        $digits = $this->config->getInt(self::CONFIG . 'similarDigits') ?: 1;
+        $groups = $enabled ? self::group($this->rows($field), $max, $digits) : [];
         $result = $this->writer->write(self::PREFIX_ID, $groups, $title, 90, $max);
 
         if ($enabled) {
@@ -73,17 +75,19 @@ class SimilarBuilder
     }
 
     /**
-     * Gruppiert nach den führenden Ziffern des Merkmals (ohne Ziffern: ganzer Wert, kleingeschrieben).
+     * Gruppiert nach den ersten $digits führenden Ziffern des Merkmals (ohne Ziffern: ganzer Wert, kleingeschrieben).
      *
      * @param list<array{id: string, code: string, sales: int}> $rows
      *
      * @return array<string, list<string>>
      */
-    public static function group(array $rows, int $max): array
+    public static function group(array $rows, int $max, int $digits = 1): array
     {
         $byCode = [];
         foreach ($rows as $row) {
-            $code = preg_match('/^\s*(\d+)/', $row['code'], $m) === 1 ? $m[1] : mb_strtolower(trim($row['code']));
+            $code = preg_match('/^\s*(\d+)/', $row['code'], $m) === 1
+                ? substr($m[1], 0, max(1, $digits))
+                : mb_strtolower(trim($row['code']));
             if ($code === '' || $code === 'null') {
                 continue;
             }

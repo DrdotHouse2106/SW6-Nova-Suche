@@ -1,3 +1,6 @@
+# 1.19.1
+- “Similar products” now compares only the **main group** of the part type by default (first digit, e.g. all 6xx) instead of the exact part type. Setting “Compare first … digits” (1 = main group, 2 = sub group, 3 = exact part type)
+
 # 1.19.0
 - New: **“similar products”** (settings → tab “Customers also bought”, default off). Once a day – together with “customers also bought” and via `bin/console nova-search:also-bought` – products with the same part type (product custom field, default `nova_teileart`, leading digits) are stored as an additional cross-selling, best sellers first, at most 12. Shown on the product page as a tab next to the regular cross-selling; a selected vehicle filters the display. Own cross-sellings stay untouched
 

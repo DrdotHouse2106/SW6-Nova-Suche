@@ -16,12 +16,16 @@ final class SimilarTest extends TestCase
             ['id' => 'd', 'code' => '622', 'sales' => 9],
             ['id' => 'e', 'code' => '', 'sales' => 3],
         ];
-        $groups = SimilarBuilder::group($rows, 12);
+        $groups = SimilarBuilder::group($rows, 12, 3);
 
         self::assertSame(['b', 'c'], $groups['a']);
         self::assertSame(['a', 'c'], $groups['b']);
         self::assertArrayNotHasKey('d', $groups, 'allein in seiner Teileart');
         self::assertArrayNotHasKey('e', $groups);
-        self::assertSame(['b'], SimilarBuilder::group($rows, 1)['c']);
+        self::assertSame(['b'], SimilarBuilder::group($rows, 1, 3)['c']);
+
+        // Standard: Hauptgruppe – 621 und 622 gehören zusammen
+        $main = SimilarBuilder::group($rows, 12);
+        self::assertSame(['b', 'a', 'c'], $main['d']);
     }
 }
