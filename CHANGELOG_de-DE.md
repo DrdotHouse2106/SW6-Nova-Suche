@@ -1,3 +1,6 @@
+# 1.19.0
+- Neu: **„Ähnliche Artikel“** (Einstellungen → Reiter „Kunden kauften auch“, Standard aus). Einmal täglich – zusammen mit „Kunden kauften auch“ und über `bin/console nova-search:also-bought` – werden Artikel mit derselben Teileart (Produkt-Zusatzfeld, Standard `nova_teileart`, maßgeblich die führenden Ziffern) als weiteres Cross-Selling gespeichert, die meistverkauften zuerst, höchstens 12. Auf der Produktseite erscheint es als Reiter neben dem festen Cross-Selling; ein gewähltes Fahrzeug filtert die Anzeige (Nova Fahrzeugauswahl). Eigene Cross-Sellings bleiben unberührt
+
 # 1.18.0
 - **Einstellungen übersichtlich im Modul:** *Erweiterungen → Nova Suche* hat einen neuen Reiter **„Einstellungen“** mit Unterreitern **Suchfenster** (Sofortsuche, Startansicht, Treffer) · **Lernen & KI** (Lernen aus dem Kundenverhalten, Rückmeldung, Claude) · **Treffer finden** (Wortteile, Nummernsuche, Ausgeschlossene Produkte) · **Kunden kauften auch** – statt einer langen Seite. Verkaufskanal-Umschalter und Vererbung wie gewohnt; „Speichern“ sichert die Änderungen aller Unterreiter
 - Gleiche Werte wie in der Plugin-Konfiguration (`NovaSearch.config.*`), keine Migration. Die klassische Plugin-Konfiguration funktioniert weiter und zeigt oben einen Hinweis mit Link in den neuen Reiter; der Knopf „Einstellungen“ in Auswertung und Listen öffnet jetzt ebenfalls den Reiter

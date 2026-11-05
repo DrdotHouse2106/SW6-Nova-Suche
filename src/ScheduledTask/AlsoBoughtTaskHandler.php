@@ -3,6 +3,7 @@
 namespace Nova\Search\ScheduledTask;
 
 use Nova\Search\Service\AlsoBoughtBuilder;
+use Nova\Search\Service\SimilarBuilder;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
@@ -19,6 +20,7 @@ final class AlsoBoughtTaskHandler extends ScheduledTaskHandler
         EntityRepository $scheduledTaskRepository,
         LoggerInterface $logger,
         private readonly AlsoBoughtBuilder $builder,
+        private readonly SimilarBuilder $similar,
     ) {
         parent::__construct($scheduledTaskRepository, $logger);
     }
@@ -26,5 +28,6 @@ final class AlsoBoughtTaskHandler extends ScheduledTaskHandler
     public function run(): void
     {
         $this->builder->rebuild();
+        $this->similar->rebuild();
     }
 }

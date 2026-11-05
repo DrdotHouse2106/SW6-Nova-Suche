@@ -425,8 +425,8 @@
 
     <card>
         <name>alsoBought</name>
-        <title>Customers also bought</title>
-        <title lang="de-DE">Kunden kauften auch</title>
+        <title>Customers also bought &amp; similar products</title>
+        <title lang="de-DE">Kunden kauften auch &amp; Ähnliche Artikel</title>
 
         <input-field type="bool">
             <name>alsoBought</name>
@@ -473,6 +473,37 @@
             <label lang="de-DE">Nie berücksichtigen</label>
             <helpText lang="de-DE">Z. B. Pfand-, Kautions-, Gutschein- oder Versandartikel. Sie erscheinen nicht als Empfehlung und bekommen keine.</helpText>
         </component>
+
+        <input-field type="bool">
+            <name>similar</name>
+            <label>Create “similar products”</label>
+            <label lang="de-DE">„Ähnliche Artikel“ erzeugen</label>
+            <helpText>Once a day (same task and console command) products with the same part type are stored as an additional cross-selling – best sellers first. Shown on the product page as a tab next to the regular cross-selling; a vehicle filter applies when displayed.</helpText>
+            <helpText lang="de-DE">Einmal täglich (gleiche Aufgabe und Konsolenbefehl wie oben) werden Artikel mit derselben Teileart als weiteres Cross-Selling gespeichert – die meistverkauften zuerst. Erscheint auf der Produktseite als Reiter neben „Passend dazu“; ein gewähltes Fahrzeug filtert die Anzeige.</helpText>
+            <defaultValue>false</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>similarTitle</name>
+            <label>Title “similar products”</label>
+            <label lang="de-DE">Überschrift „Ähnliche Artikel“</label>
+            <defaultValue>Ähnliche Artikel</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>similarMax</name>
+            <label>Maximum similar products</label>
+            <label lang="de-DE">Höchstens … ähnliche Artikel</label>
+            <defaultValue>12</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>similarField</name>
+            <label>Product custom field for similarity</label>
+            <label lang="de-DE">Zusatzfeld für „ähnlich“</label>
+            <helpText lang="de-DE">Technischer Name des Produkt-Zusatzfelds; Artikel mit gleichen führenden Ziffern gelten als ähnlich. Standard: nova_teileart (Nova Kategorie-Automatik).</helpText>
+            <defaultValue>nova_teileart</defaultValue>
+        </input-field>
     </card>
 
     <card>

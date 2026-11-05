@@ -69,10 +69,24 @@
             <argument type="service" id="scheduled_task.repository"/>
             <argument type="service" id="logger"/>
             <argument type="service" id="Nova\Search\Service\AlsoBoughtBuilder"/>
+            <argument type="service" id="Nova\Search\Service\SimilarBuilder"/>
+        </service>
+
+        <service id="Nova\Search\Service\CrossSellingWriter">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="product_cross_selling.repository"/>
+        </service>
+
+        <service id="Nova\Search\Service\SimilarBuilder">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="Nova\Search\Service\CrossSellingWriter"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <argument type="service" id="logger"/>
         </service>
 
         <service id="Nova\Search\Command\AlsoBoughtCommand">
             <argument type="service" id="Nova\Search\Service\AlsoBoughtBuilder"/>
+            <argument type="service" id="Nova\Search\Service\SimilarBuilder"/>
             <tag name="console.command"/>
         </service>
 

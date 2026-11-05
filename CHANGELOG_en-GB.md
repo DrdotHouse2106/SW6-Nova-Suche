@@ -1,3 +1,6 @@
+# 1.19.0
+- New: **“similar products”** (settings → tab “Customers also bought”, default off). Once a day – together with “customers also bought” and via `bin/console nova-search:also-bought` – products with the same part type (product custom field, default `nova_teileart`, leading digits) are stored as an additional cross-selling, best sellers first, at most 12. Shown on the product page as a tab next to the regular cross-selling; a selected vehicle filters the display. Own cross-sellings stay untouched
+
 # 1.18.0
 - **Settings clearly arranged in the module:** *Extensions → Nova Search* has a new tab **“Settings”** with sub-tabs **Search window** (instant search, start view, results) · **Learning & AI** (learning from customer behaviour, feedback, Claude) · **Finding results** (word parts, number search, excluded products) · **Customers also bought** – instead of one long page. Sales channel switch and inheritance as usual; “Save” stores the changes of all sub-tabs
 - Same values as in the plugin configuration (`NovaSearch.config.*`), no migration. The classic plugin configuration keeps working and shows a hint with a link to the new tab at the top; the “Settings” button in analytics and lists now opens the tab as well
